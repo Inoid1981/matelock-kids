@@ -10,6 +10,58 @@ void main() {
 
 enum AppLanguage { spanish, english }
 
+const List<String> kAppIds = [
+  'calculator',
+  'youtube',
+  'tiktok',
+  'roblox',
+  'whatsapp',
+  'chrome',
+  'games',
+];
+
+String appLabel(AppLanguage lang, String appId) {
+  switch (appId) {
+    case 'calculator':
+      return tr(lang, 'calculatorApp');
+    case 'youtube':
+      return 'YouTube';
+    case 'tiktok':
+      return 'TikTok';
+    case 'roblox':
+      return 'Roblox';
+    case 'whatsapp':
+      return 'WhatsApp';
+    case 'chrome':
+      return 'Chrome';
+    case 'games':
+      return tr(lang, 'gamesApp');
+    default:
+      return appId;
+  }
+}
+
+IconData appIcon(String appId) {
+  switch (appId) {
+    case 'calculator':
+      return Icons.calculate_outlined;
+    case 'youtube':
+      return Icons.play_circle_outline;
+    case 'tiktok':
+      return Icons.music_note_outlined;
+    case 'roblox':
+      return Icons.videogame_asset_outlined;
+    case 'whatsapp':
+      return Icons.chat_bubble_outline;
+    case 'chrome':
+      return Icons.public;
+    case 'games':
+      return Icons.sports_esports_outlined;
+    default:
+      return Icons.apps_outlined;
+  }
+}
+
 class MateLockKidsApp extends StatefulWidget {
   const MateLockKidsApp({super.key});
 
@@ -32,8 +84,46 @@ class _MateLockKidsAppState extends State<MateLockKidsApp> {
       debugShowCheckedModeBanner: false,
       title: 'MateLock Kids',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF4F8EF7)),
         useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.indigo,
+          brightness: Brightness.light,
+        ),
+        scaffoldBackgroundColor: const Color(0xFFF5F7FB),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(18),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(18),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(18),
+            borderSide: const BorderSide(color: Colors.indigo, width: 1.4),
+          ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            minimumSize: const Size.fromHeight(56),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(56),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+          ),
+        ),
       ),
       home: StartupScreen(
         language: language,
@@ -131,7 +221,6 @@ String tr(AppLanguage lang, String key) {
     'unlockStatus': 'Desbloqueo temporal',
     'locked': 'Protegida',
     'unlockedUntil': 'Desbloqueada hasta',
-    'expired': 'Caducado',
     'testProtectedApps': 'Probar apps protegidas',
     'openProtectedApp': 'Abrir app protegida',
     'thisAppWouldBeBlocked': 'Esta app quedaría protegida en Android real',
@@ -142,6 +231,44 @@ String tr(AppLanguage lang, String key) {
     'configureAndroid': 'Configurar Android',
     'bestStreak': 'Mejor racha',
     'difficulty': 'Dificultad',
+    'progress': 'Progreso',
+    'level': 'Nivel',
+    'rewards': 'Recompensas',
+    'avatars': 'Avatares',
+    'achievements': 'Logros',
+    'chooseAvatar': 'Elegir avatar',
+    'lockedAvatar': 'Bloqueado',
+    'selectedAvatar': 'Avatar seleccionado',
+    'rewardChest': 'Cofre desbloqueado',
+    'achievementUnlocked': 'Logro desbloqueado',
+    'robotAvatar': 'Robot',
+    'ninjaAvatar': 'Ninja',
+    'astronautAvatar': 'Astronauta',
+    'bearAvatar': 'Osito',
+    'foxAvatar': 'Zorro',
+    'catAvatar': 'Gato',
+    'achievement_streak_5': 'Racha de 5',
+    'achievement_streak_10': 'Racha de 10',
+    'achievement_10_stars': '10 estrellas',
+    'achievement_25_stars': '25 estrellas',
+    'achievement_50_correct': '50 aciertos',
+    'achievement_level_3': 'Nivel 3',
+    'achievement_level_5': 'Nivel 5',
+    'achievement_apps_3': '3 apps protegidas',
+    'calculatorApp': 'Calculadora',
+    'gamesApp': 'Juegos',
+    'initialSetupTitle': 'Configuración inicial',
+    'initialSetupSubtitle':
+        'Te recomendamos proteger la Calculadora para empezar a practicar desde el primer día.',
+    'howItWorks': 'Cómo funciona',
+    'howItWorks1': '1. Elige las apps que quieres proteger.',
+    'howItWorks2':
+        '2. El niño resuelve una operación antes de entrar en la app.',
+    'howItWorks3':
+        '3. La app queda desbloqueada temporalmente y luego vuelve a protegerse.',
+    'protectCalculator': 'Proteger Calculadora',
+    'continueWithoutIt': 'Continuar sin hacerlo',
+    'setupDone': 'Configuración completada',
   };
 
   const en = {
@@ -231,7 +358,6 @@ String tr(AppLanguage lang, String key) {
     'unlockStatus': 'Temporary unlock',
     'locked': 'Protected',
     'unlockedUntil': 'Unlocked until',
-    'expired': 'Expired',
     'testProtectedApps': 'Test protected apps',
     'openProtectedApp': 'Open protected app',
     'thisAppWouldBeBlocked': 'This app would be protected on real Android',
@@ -242,20 +368,119 @@ String tr(AppLanguage lang, String key) {
     'configureAndroid': 'Configure Android',
     'bestStreak': 'Best streak',
     'difficulty': 'Difficulty',
+    'progress': 'Progress',
+    'level': 'Level',
+    'rewards': 'Rewards',
+    'avatars': 'Avatars',
+    'achievements': 'Achievements',
+    'chooseAvatar': 'Choose avatar',
+    'lockedAvatar': 'Locked',
+    'selectedAvatar': 'Selected avatar',
+    'rewardChest': 'Reward chest unlocked',
+    'achievementUnlocked': 'Achievement unlocked',
+    'robotAvatar': 'Robot',
+    'ninjaAvatar': 'Ninja',
+    'astronautAvatar': 'Astronaut',
+    'bearAvatar': 'Bear',
+    'foxAvatar': 'Fox',
+    'catAvatar': 'Cat',
+    'achievement_streak_5': 'Streak of 5',
+    'achievement_streak_10': 'Streak of 10',
+    'achievement_10_stars': '10 stars',
+    'achievement_25_stars': '25 stars',
+    'achievement_50_correct': '50 correct',
+    'achievement_level_3': 'Level 3',
+    'achievement_level_5': 'Level 5',
+    'achievement_apps_3': '3 protected apps',
+    'calculatorApp': 'Calculator',
+    'gamesApp': 'Games',
+    'initialSetupTitle': 'Initial setup',
+    'initialSetupSubtitle':
+        'We recommend protecting Calculator so the child can start practicing from day one.',
+    'howItWorks': 'How it works',
+    'howItWorks1': '1. Choose the apps you want to protect.',
+    'howItWorks2':
+        '2. The child solves a math challenge before entering the app.',
+    'howItWorks3':
+        '3. The app stays temporarily unlocked and then becomes protected again.',
+    'protectCalculator': 'Protect Calculator',
+    'continueWithoutIt': 'Continue without it',
+    'setupDone': 'Setup completed',
   };
 
   return (lang == AppLanguage.spanish ? es : en)[key] ?? key;
+}
+
+String avatarEmoji(String avatarId) {
+  switch (avatarId) {
+    case 'robot':
+      return '🤖';
+    case 'ninja':
+      return '🥷';
+    case 'astronaut':
+      return '👨‍🚀';
+    case 'fox':
+      return '🦊';
+    case 'cat':
+      return '🐱';
+    case 'bear':
+    default:
+      return '🧸';
+  }
+}
+
+String avatarLabel(AppLanguage lang, String avatarId) {
+  switch (avatarId) {
+    case 'robot':
+      return tr(lang, 'robotAvatar');
+    case 'ninja':
+      return tr(lang, 'ninjaAvatar');
+    case 'astronaut':
+      return tr(lang, 'astronautAvatar');
+    case 'fox':
+      return tr(lang, 'foxAvatar');
+    case 'cat':
+      return tr(lang, 'catAvatar');
+    case 'bear':
+    default:
+      return tr(lang, 'bearAvatar');
+  }
+}
+
+String achievementLabel(AppLanguage lang, String achievementId) {
+  switch (achievementId) {
+    case 'streak_5':
+      return tr(lang, 'achievement_streak_5');
+    case 'streak_10':
+      return tr(lang, 'achievement_streak_10');
+    case 'stars_10':
+      return tr(lang, 'achievement_10_stars');
+    case 'stars_25':
+      return tr(lang, 'achievement_25_stars');
+    case 'correct_50':
+      return tr(lang, 'achievement_50_correct');
+    case 'level_3':
+      return tr(lang, 'achievement_level_3');
+    case 'level_5':
+      return tr(lang, 'achievement_level_5');
+    case 'apps_3':
+      return tr(lang, 'achievement_apps_3');
+    default:
+      return achievementId;
+  }
 }
 
 class ChildProfile {
   final String id;
   final String name;
   final int age;
+  final String avatarId;
 
   const ChildProfile({
     required this.id,
     required this.name,
     required this.age,
+    required this.avatarId,
   });
 
   Map<String, dynamic> toMap() {
@@ -263,6 +488,7 @@ class ChildProfile {
       'id': id,
       'name': name,
       'age': age,
+      'avatarId': avatarId,
     };
   }
 
@@ -271,6 +497,21 @@ class ChildProfile {
       id: map['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
       name: map['name'] ?? 'Niño',
       age: map['age'] ?? 9,
+      avatarId: map['avatarId'] ?? 'bear',
+    );
+  }
+
+  ChildProfile copyWith({
+    String? id,
+    String? name,
+    int? age,
+    String? avatarId,
+  }) {
+    return ChildProfile(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      age: age ?? this.age,
+      avatarId: avatarId ?? this.avatarId,
     );
   }
 }
@@ -287,6 +528,8 @@ class AppStats {
   int streak;
   int bestStreak;
   int difficultyLevel;
+  List<String> unlockedAvatars;
+  List<String> achievements;
 
   AppStats({
     this.totalAttempts = 0,
@@ -300,7 +543,10 @@ class AppStats {
     this.streak = 0,
     this.bestStreak = 0,
     this.difficultyLevel = 1,
-  });
+    List<String>? unlockedAvatars,
+    List<String>? achievements,
+  })  : unlockedAvatars = unlockedAvatars ?? ['bear'],
+        achievements = achievements ?? [];
 
   double get successRate {
     if (totalAttempts == 0) return 0;
@@ -342,6 +588,8 @@ class AppStats {
       'streak': streak,
       'bestStreak': bestStreak,
       'difficultyLevel': difficultyLevel,
+      'unlockedAvatars': unlockedAvatars,
+      'achievements': achievements,
     };
   }
 
@@ -358,6 +606,9 @@ class AppStats {
       streak: map['streak'] ?? 0,
       bestStreak: map['bestStreak'] ?? 0,
       difficultyLevel: map['difficultyLevel'] ?? 1,
+      unlockedAvatars:
+          List<String>.from(map['unlockedAvatars'] ?? const ['bear']),
+      achievements: List<String>.from(map['achievements'] ?? const []),
     );
   }
 }
@@ -430,6 +681,7 @@ class LocalStorageService {
   static const String statsPrefix = 'app_stats_';
   static const String androidConfigPrefix = 'android_config_';
   static const String unlockSessionsPrefix = 'unlock_sessions_';
+  static const String setupDonePrefix = 'setup_done_';
   static const String parentPinKey = 'parent_pin';
 
   static Future<void> saveChildren(List<ChildProfile> children) async {
@@ -525,6 +777,21 @@ class LocalStorageService {
     await prefs.remove('$unlockSessionsPrefix$childId');
   }
 
+  static Future<void> saveSetupDone(String childId, bool done) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('$setupDonePrefix$childId', done);
+  }
+
+  static Future<bool> loadSetupDone(String childId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('$setupDonePrefix$childId') ?? false;
+  }
+
+  static Future<void> deleteSetupDone(String childId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('$setupDonePrefix$childId');
+  }
+
   static Future<void> saveParentPin(String pin) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(parentPinKey, pin);
@@ -545,10 +812,44 @@ class LocalStorageService {
           key.startsWith(statsPrefix) ||
           key.startsWith(blockedAppsPrefix) ||
           key.startsWith(androidConfigPrefix) ||
-          key.startsWith(unlockSessionsPrefix)) {
+          key.startsWith(unlockSessionsPrefix) ||
+          key.startsWith(setupDonePrefix)) {
         await prefs.remove(key);
       }
     }
+  }
+}
+
+class PrettyCard extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  final Color? color;
+
+  const PrettyCard({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(16),
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: color ?? Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            blurRadius: 18,
+            spreadRadius: 0,
+            color: Colors.black.withOpacity(0.05),
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: child,
+    );
   }
 }
 
@@ -575,6 +876,7 @@ class _StartupScreenState extends State<StartupScreen> {
   String parentPin = '1234';
   AndroidConfig androidConfig = AndroidConfig();
   List<UnlockSession> unlockSessions = [];
+  bool setupDone = false;
 
   @override
   void initState() {
@@ -604,6 +906,7 @@ class _StartupScreenState extends State<StartupScreen> {
     List<String> loadedBlockedApps = [];
     AndroidConfig loadedAndroidConfig = AndroidConfig();
     List<UnlockSession> loadedSessions = [];
+    bool loadedSetupDone = false;
 
     if (selectedChild != null) {
       loadedStats = await LocalStorageService.loadStats(selectedChild.id);
@@ -614,6 +917,7 @@ class _StartupScreenState extends State<StartupScreen> {
       loadedSessions =
           await LocalStorageService.loadUnlockSessions(selectedChild.id);
       loadedSessions = loadedSessions.where((e) => e.isActive).toList();
+      loadedSetupDone = await LocalStorageService.loadSetupDone(selectedChild.id);
       await LocalStorageService.saveUnlockSessions(
         selectedChild.id,
         loadedSessions,
@@ -628,6 +932,7 @@ class _StartupScreenState extends State<StartupScreen> {
       parentPin = loadedPin;
       androidConfig = loadedAndroidConfig;
       unlockSessions = loadedSessions;
+      setupDone = loadedSetupDone;
       isLoading = false;
     });
   }
@@ -642,6 +947,14 @@ class _StartupScreenState extends State<StartupScreen> {
 
     if (children.isEmpty || activeChild == null) {
       return ParentLoginScreen(
+        language: widget.language,
+        onLanguageChanged: widget.onLanguageChanged,
+      );
+    }
+
+    if (!setupDone) {
+      return InitialSetupScreen(
+        childId: activeChild!.id,
         language: widget.language,
         onLanguageChanged: widget.onLanguageChanged,
       );
@@ -676,6 +989,7 @@ class LanguageSwitcher extends StatelessWidget {
     return DropdownButton<AppLanguage>(
       value: language,
       underline: const SizedBox(),
+      borderRadius: BorderRadius.circular(16),
       onChanged: (value) {
         if (value != null) onChanged(value);
       },
@@ -721,69 +1035,76 @@ class ParentLoginScreen extends StatelessWidget {
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
+              constraints: const BoxConstraints(maxWidth: 430),
               child: Column(
                 children: [
-                  Container(
-                    width: 96,
-                    height: 96,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primaryContainer,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.lock, size: 48),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    tr(language, 'appTitle'),
-                    style: const TextStyle(
-                      fontSize: 30,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    tr(language, 'tagline'),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 28),
-                  TextField(
-                    decoration: InputDecoration(
-                      labelText: tr(language, 'email'),
-                      prefixIcon: const Icon(Icons.email_outlined),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    obscureText: true,
-                    decoration: InputDecoration(
-                      labelText: tr(language, 'password'),
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ChildProfileScreen(
-                              language: language,
-                              onLanguageChanged: onLanguageChanged,
-                            ),
+                  PrettyCard(
+                    color: const Color(0xFFEAEFFF),
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 90,
+                          height: 90,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
                           ),
-                        );
-                      },
-                      child: Text(tr(language, 'createFirstChild')),
+                          child: const Icon(Icons.lock, size: 46),
+                        ),
+                        const SizedBox(height: 18),
+                        Text(
+                          tr(language, 'appTitle'),
+                          style: const TextStyle(
+                            fontSize: 30,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          tr(language, 'tagline'),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  PrettyCard(
+                    child: Column(
+                      children: [
+                        TextField(
+                          decoration: InputDecoration(
+                            labelText: tr(language, 'email'),
+                            prefixIcon: const Icon(Icons.email_outlined),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        TextField(
+                          obscureText: true,
+                          decoration: InputDecoration(
+                            labelText: tr(language, 'password'),
+                            prefixIcon: const Icon(Icons.lock_outline),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ChildProfileScreen(
+                                    language: language,
+                                    onLanguageChanged: onLanguageChanged,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Text(tr(language, 'createFirstChild')),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -837,52 +1158,38 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
 
     ChildProfile profile;
     if (widget.existingProfile != null) {
-      profile = ChildProfile(
-        id: widget.existingProfile!.id,
+      profile = widget.existingProfile!.copyWith(
         name: name,
         age: _selectedAge,
       );
       final index = children.indexWhere((c) => c.id == profile.id);
-      if (index != -1) {
-        children[index] = profile;
-      }
+      if (index != -1) children[index] = profile;
     } else {
       profile = ChildProfile(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         name: name,
         age: _selectedAge,
+        avatarId: 'bear',
       );
       children.add(profile);
       await LocalStorageService.saveStats(profile.id, AppStats());
       await LocalStorageService.saveBlockedApps(profile.id, []);
       await LocalStorageService.saveAndroidConfig(profile.id, AndroidConfig());
       await LocalStorageService.saveUnlockSessions(profile.id, []);
+      await LocalStorageService.saveSetupDone(profile.id, false);
     }
 
     await LocalStorageService.saveChildren(children);
     await LocalStorageService.saveActiveChildId(profile.id);
     await LocalStorageService.saveParentPin('1234');
 
-    final stats = await LocalStorageService.loadStats(profile.id);
-    final blockedApps = await LocalStorageService.loadBlockedApps(profile.id);
-    final androidConfig =
-        await LocalStorageService.loadAndroidConfig(profile.id);
-    final unlockSessions =
-        await LocalStorageService.loadUnlockSessions(profile.id);
-
     if (!mounted) return;
 
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) => ParentDashboardScreen(
-          children: children,
-          activeChild: profile,
-          stats: stats,
-          blockedApps: blockedApps,
-          parentPin: '1234',
-          androidConfig: androidConfig,
-          unlockSessions: unlockSessions,
+        builder: (_) => InitialSetupScreen(
+          childId: profile.id,
           language: widget.language,
           onLanguageChanged: widget.onLanguageChanged,
         ),
@@ -914,66 +1221,241 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
+              constraints: const BoxConstraints(maxWidth: 430),
+              child: PrettyCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.existingProfile == null
+                          ? tr(widget.language, 'createProfile')
+                          : tr(widget.language, 'editProfile'),
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(tr(widget.language, 'enterNameAge')),
+                    const SizedBox(height: 24),
+                    TextField(
+                      controller: _nameController,
+                      decoration: InputDecoration(
+                        labelText: tr(widget.language, 'name'),
+                        prefixIcon: const Icon(Icons.child_care),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      tr(widget.language, 'age'),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: ages.map((age) {
+                        return ChoiceChip(
+                          label: Text('$age ${tr(widget.language, 'years')}'),
+                          selected: age == _selectedAge,
+                          onSelected: (_) {
+                            setState(() => _selectedAge = age);
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 28),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _saving ? null : _continue,
+                        child: Text(
+                          _saving
+                              ? tr(widget.language, 'saving')
+                              : tr(widget.language, 'saveContinue'),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class InitialSetupScreen extends StatelessWidget {
+  final String childId;
+  final AppLanguage language;
+  final ValueChanged<AppLanguage> onLanguageChanged;
+
+  const InitialSetupScreen({
+    super.key,
+    required this.childId,
+    required this.language,
+    required this.onLanguageChanged,
+  });
+
+  Future<void> _finishSetup(BuildContext context,
+      {required bool protectCalculator}) async {
+    final existingBlockedApps = await LocalStorageService.loadBlockedApps(childId);
+    final blockedApps = List<String>.from(existingBlockedApps);
+
+    if (protectCalculator && !blockedApps.contains('calculator')) {
+      blockedApps.add('calculator');
+      await LocalStorageService.saveBlockedApps(childId, blockedApps);
+    }
+
+    await LocalStorageService.saveSetupDone(childId, true);
+
+    if (!context.mounted) return;
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StartupScreen(
+          language: language,
+          onLanguageChanged: onLanguageChanged,
+        ),
+      ),
+      (route) => false,
+    );
+  }
+
+  Widget _buildStep(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 2),
+            child: Icon(Icons.check_circle_outline, size: 20),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: Text(text)),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final calculatorLabel = appLabel(language, 'calculator');
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(tr(language, 'initialSetupTitle')),
+        actions: [
+          LanguageSwitcher(
+            language: language,
+            onChanged: onLanguageChanged,
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    widget.existingProfile == null
-                        ? tr(widget.language, 'createProfile')
-                        : tr(widget.language, 'editProfile'),
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
+                  PrettyCard(
+                    color: const Color(0xFFEAEFFF),
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 88,
+                          height: 88,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.calculate, size: 42),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          tr(language, 'initialSetupTitle'),
+                          style: const TextStyle(
+                            fontSize: 30,
+                            fontWeight: FontWeight.w800,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          tr(language, 'initialSetupSubtitle'),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(tr(widget.language, 'enterNameAge')),
-                  const SizedBox(height: 24),
-                  TextField(
-                    controller: _nameController,
-                    decoration: InputDecoration(
-                      labelText: tr(widget.language, 'name'),
-                      prefixIcon: const Icon(Icons.child_care),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
+                  const SizedBox(height: 18),
+                  PrettyCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          tr(language, 'howItWorks'),
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        _buildStep(tr(language, 'howItWorks1')),
+                        _buildStep(tr(language, 'howItWorks2')),
+                        _buildStep(tr(language, 'howItWorks3')),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  PrettyCard(
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 58,
+                          height: 58,
+                          decoration: BoxDecoration(
+                            color: Colors.indigo.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Icon(appIcon('calculator')),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Text(
+                            '$calculatorLabel · ${tr(language, 'blockedApps')}',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 20),
-                  Text(
-                    tr(widget.language, 'age'),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  ElevatedButton.icon(
+                    onPressed: () =>
+                        _finishSetup(context, protectCalculator: true),
+                    icon: const Icon(Icons.check_circle_outline),
+                    label: Text(tr(language, 'protectCalculator')),
                   ),
                   const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: ages.map((age) {
-                      return ChoiceChip(
-                        label: Text('$age ${tr(widget.language, 'years')}'),
-                        selected: age == _selectedAge,
-                        onSelected: (_) {
-                          setState(() => _selectedAge = age);
-                        },
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 28),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton(
-                      onPressed: _saving ? null : _continue,
-                      child: Text(
-                        _saving
-                            ? tr(widget.language, 'saving')
-                            : tr(widget.language, 'saveContinue'),
-                      ),
-                    ),
+                  OutlinedButton(
+                    onPressed: () =>
+                        _finishSetup(context, protectCalculator: false),
+                    child: Text(tr(language, 'continueWithoutIt')),
                   ),
                 ],
               ),
@@ -1021,6 +1503,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   late String parentPin;
   late AndroidConfig androidConfig;
   late List<UnlockSession> unlockSessions;
+  bool protectionEnabled = true;
 
   @override
   void initState() {
@@ -1045,6 +1528,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         await LocalStorageService.loadAndroidConfig(activeChild.id);
     final refreshedUnlocks =
         await LocalStorageService.loadUnlockSessions(activeChild.id);
+
     ChildProfile refreshedActiveChild = activeChild;
     try {
       refreshedActiveChild =
@@ -1098,11 +1582,6 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                 keyboardType: TextInputType.number,
                 obscureText: true,
                 autofocus: true,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
               ),
             ],
           ),
@@ -1158,6 +1637,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         blockedApps = result;
       });
       await LocalStorageService.saveBlockedApps(activeChild.id, blockedApps);
+      _evaluateDashboardAchievements();
     }
   }
 
@@ -1175,9 +1655,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     );
 
     await LocalStorageService.saveStats(activeChild.id, stats);
-    if (mounted) {
-      setState(() {});
-    }
+    await _refreshActiveChild();
   }
 
   Future<void> _switchChild() async {
@@ -1198,23 +1676,23 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 
     if (selected != null) {
       await LocalStorageService.saveActiveChildId(selected.id);
-      final newStats = await LocalStorageService.loadStats(selected.id);
-      final newBlockedApps =
-          await LocalStorageService.loadBlockedApps(selected.id);
-      final newAndroidConfig =
-          await LocalStorageService.loadAndroidConfig(selected.id);
-      final newUnlocks =
-          await LocalStorageService.loadUnlockSessions(selected.id);
+      final setupDone = await LocalStorageService.loadSetupDone(selected.id);
 
       if (!mounted) return;
 
-      setState(() {
-        activeChild = selected;
-        stats = newStats;
-        blockedApps = newBlockedApps;
-        androidConfig = newAndroidConfig;
-        unlockSessions = newUnlocks.where((e) => e.isActive).toList();
-      });
+      if (!setupDone) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => InitialSetupScreen(
+              childId: selected.id,
+              language: widget.language,
+              onLanguageChanged: widget.onLanguageChanged,
+            ),
+          ),
+        );
+        return;
+      }
 
       await _refreshActiveChild();
     }
@@ -1318,36 +1796,115 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     }
   }
 
+  Future<void> _openAvatarSelector() async {
+    final allowed = await _askForPin();
+    if (!allowed || !mounted) return;
+
+    final selectedAvatar = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AvatarSelectorScreen(
+          selectedAvatar: activeChild.avatarId,
+          unlockedAvatars: stats.unlockedAvatars,
+          language: widget.language,
+        ),
+      ),
+    );
+
+    if (selectedAvatar != null) {
+      final updatedChild = activeChild.copyWith(avatarId: selectedAvatar);
+      final currentChildren = await LocalStorageService.loadChildren();
+      final index = currentChildren.indexWhere((c) => c.id == activeChild.id);
+      if (index != -1) {
+        currentChildren[index] = updatedChild;
+      }
+      await LocalStorageService.saveChildren(currentChildren);
+      setState(() {
+        activeChild = updatedChild;
+      });
+    }
+  }
+
+  void _addAchievement(String id) {
+    if (!stats.achievements.contains(id)) {
+      stats.achievements.add(id);
+    }
+  }
+
+  Future<void> _evaluateDashboardAchievements() async {
+    if (blockedApps.length >= 3) {
+      _addAchievement('apps_3');
+    }
+    await LocalStorageService.saveStats(activeChild.id, stats);
+    if (mounted) setState(() {});
+  }
+
+  Widget _buildProgressBar() {
+    final progress = (stats.successRate / 100).clamp(0.0, 1.0);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              tr(widget.language, 'progress'),
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const Spacer(),
+            Text('${stats.successRate.toStringAsFixed(0)}%'),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LinearProgressIndicator(
+            value: progress,
+            minHeight: 10,
+            backgroundColor: Colors.indigo.withOpacity(0.12),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cards = [
       _StatCard(
         title: tr(widget.language, 'hits'),
         value: '${stats.successRate.toStringAsFixed(0)}%',
+        icon: Icons.check_circle_outline,
       ),
       _StatCard(
         title: tr(widget.language, 'attempts'),
         value: '${stats.totalAttempts}',
+        icon: Icons.pin_outlined,
       ),
       _StatCard(
         title: tr(widget.language, 'fails'),
         value: '${stats.wrongAnswers}',
+        icon: Icons.close_rounded,
       ),
       _StatCard(
         title: tr(widget.language, 'mostFails'),
         value: stats.mostFailedOperation(widget.language),
+        icon: Icons.bar_chart_rounded,
       ),
       _StatCard(
         title: tr(widget.language, 'stars'),
         value: '⭐ ${stats.stars}',
+        icon: Icons.star_outline,
       ),
       _StatCard(
         title: tr(widget.language, 'bestStreak'),
         value: '🔥 ${stats.bestStreak}',
+        icon: Icons.local_fire_department_outlined,
       ),
       _StatCard(
         title: tr(widget.language, 'difficulty'),
         value: '${stats.difficultyLevel}/5',
+        icon: Icons.speed_outlined,
       ),
     ];
 
@@ -1371,35 +1928,87 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(18),
-              ),
+            PrettyCard(
+              color: const Color(0xFFEAEFFF),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(tr(widget.language, 'activeChild')),
-                  const SizedBox(height: 6),
                   Text(
-                    '${activeChild.name} · ${activeChild.age} ${tr(widget.language, 'years')}',
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    tr(widget.language, 'activeChild'),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          avatarEmoji(activeChild.avatarId),
+                          style: const TextStyle(fontSize: 34),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              activeChild.name,
+                              style: const TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${tr(widget.language, 'age')}: ${activeChild.age} ${tr(widget.language, 'years')}',
+                            ),
+                            Text(
+                              '${tr(widget.language, 'level')}: ${stats.difficultyLevel}/5',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  _buildProgressBar(),
+                  const SizedBox(height: 14),
                   Text(tr(widget.language, 'automaticLevel')),
                   const SizedBox(height: 8),
                   Text(
-                    '${tr(widget.language, 'selectedApps')}: ${blockedApps.isEmpty ? tr(widget.language, 'noBlockedApps') : blockedApps.join(', ')}',
+                    '${tr(widget.language, 'selectedApps')}: ${blockedApps.isEmpty ? tr(widget.language, 'noBlockedApps') : blockedApps.map((e) => appLabel(widget.language, e)).join(', ')}',
                   ),
                   const SizedBox(height: 8),
                   Text(
                     '${tr(widget.language, 'androidReadiness')}: ${androidConfig.isReady ? tr(widget.language, 'ready') : tr(widget.language, 'notReady')}',
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
+
+SwitchListTile(
+  value: protectionEnabled,
+  title: const Text(
+    'Protección activa',
+    style: TextStyle(fontWeight: FontWeight.bold),
+  ),
+  subtitle: Text(
+    protectionEnabled ? 'Activada' : 'Desactivada',
+  ),
+  onChanged: (value) {
+    setState(() {
+      protectionEnabled = value;
+    });
+  },
+),
+                  const SizedBox(height: 14),
                   Wrap(
                     spacing: 10,
                     runSpacing: 10,
@@ -1419,6 +2028,11 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                         icon: const Icon(Icons.edit),
                         label: Text(tr(widget.language, 'editProfile')),
                       ),
+                      FilledButton.tonalIcon(
+                        onPressed: _openAvatarSelector,
+                        icon: const Icon(Icons.emoji_emotions_outlined),
+                        label: Text(tr(widget.language, 'chooseAvatar')),
+                      ),
                     ],
                   ),
                 ],
@@ -1427,7 +2041,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
             const SizedBox(height: 18),
             Text(
               tr(widget.language, 'summary'),
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 12),
             GridView.builder(
@@ -1438,45 +2052,111 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                 crossAxisCount: 2,
                 mainAxisSpacing: 12,
                 crossAxisSpacing: 12,
-                childAspectRatio: 1.35,
+                childAspectRatio: 1.18,
               ),
               itemBuilder: (_, index) => cards[index],
             ),
+            const SizedBox(height: 18),
+            PrettyCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    tr(widget.language, 'rewards'),
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    tr(widget.language, 'avatars'),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: stats.unlockedAvatars.map((avatarId) {
+                      final isSelected = activeChild.avatarId == avatarId;
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? Colors.indigo.withOpacity(0.12)
+                              : Colors.grey.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isSelected
+                                ? Colors.indigo
+                                : Colors.transparent,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              avatarEmoji(avatarId),
+                              style: const TextStyle(fontSize: 22),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(avatarLabel(widget.language, avatarId)),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    tr(widget.language, 'achievements'),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 10),
+                  if (stats.achievements.isEmpty)
+                    Text(tr(widget.language, 'none'))
+                  else
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: stats.achievements.map((achievementId) {
+                        return Chip(
+                          avatar: const Icon(Icons.emoji_events_outlined,
+                              size: 18),
+                          label: Text(
+                            achievementLabel(widget.language, achievementId),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                ],
+              ),
+            ),
             const SizedBox(height: 20),
-            SizedBox(
-              height: 54,
-              child: ElevatedButton.icon(
-                onPressed: _openMathChallenge,
-                icon: const Icon(Icons.play_arrow),
-                label: Text(tr(widget.language, 'testMathChallenge')),
-              ),
+            ElevatedButton.icon(
+              onPressed: _openMathChallenge,
+              icon: const Icon(Icons.play_arrow),
+              label: Text(tr(widget.language, 'testMathChallenge')),
             ),
             const SizedBox(height: 12),
-            SizedBox(
-              height: 54,
-              child: OutlinedButton.icon(
-                onPressed: _openBlockedApps,
-                icon: const Icon(Icons.apps),
-                label: Text(tr(widget.language, 'blockedApps')),
-              ),
+            OutlinedButton.icon(
+              onPressed: _openBlockedApps,
+              icon: const Icon(Icons.apps),
+              label: Text(tr(widget.language, 'blockedApps')),
             ),
             const SizedBox(height: 12),
-            SizedBox(
-              height: 54,
-              child: OutlinedButton.icon(
-                onPressed: _openAndroidSetup,
-                icon: const Icon(Icons.android),
-                label: Text(tr(widget.language, 'configureAndroid')),
-              ),
+            OutlinedButton.icon(
+              onPressed: _openAndroidSetup,
+              icon: const Icon(Icons.android),
+              label: Text(tr(widget.language, 'configureAndroid')),
             ),
             const SizedBox(height: 12),
-            SizedBox(
-              height: 54,
-              child: OutlinedButton.icon(
-                onPressed: _openProtectedAppsTester,
-                icon: const Icon(Icons.lock_open),
-                label: Text(tr(widget.language, 'testProtectedApps')),
-              ),
+            OutlinedButton.icon(
+              onPressed: _openProtectedAppsTester,
+              icon: const Icon(Icons.lock_open),
+              label: Text(tr(widget.language, 'testProtectedApps')),
             ),
             const SizedBox(height: 12),
             Text(
@@ -1493,30 +2173,34 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 class _StatCard extends StatelessWidget {
   final String title;
   final String value;
+  final IconData icon;
 
   const _StatCard({
     required this.title,
     required this.value,
+    required this.icon,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(18),
-      ),
+    return PrettyCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title),
+          Icon(icon, size: 22),
           const Spacer(),
           Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 6),
+          Text(
             value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontSize: 22,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ],
@@ -1570,6 +2254,59 @@ class _MathChallengeScreenState extends State<MathChallengeScreen> {
     } else if (success < 50 && widget.stats.difficultyLevel > 1) {
       widget.stats.difficultyLevel--;
     }
+  }
+
+  void maybeUnlockRewards() {
+    if (widget.stats.stars >= 10 &&
+        !widget.stats.unlockedAvatars.contains('robot')) {
+      widget.stats.unlockedAvatars.add('robot');
+      rewardMessage =
+          '🎁 ${tr(widget.language, 'rewardChest')}: ${tr(widget.language, 'robotAvatar')}';
+    }
+
+    if (widget.stats.stars >= 20 &&
+        !widget.stats.unlockedAvatars.contains('ninja')) {
+      widget.stats.unlockedAvatars.add('ninja');
+      rewardMessage =
+          '🎁 ${tr(widget.language, 'rewardChest')}: ${tr(widget.language, 'ninjaAvatar')}';
+    }
+
+    if (widget.stats.stars >= 35 &&
+        !widget.stats.unlockedAvatars.contains('astronaut')) {
+      widget.stats.unlockedAvatars.add('astronaut');
+      rewardMessage =
+          '🎁 ${tr(widget.language, 'rewardChest')}: ${tr(widget.language, 'astronautAvatar')}';
+    }
+
+    if (widget.stats.stars >= 50 &&
+        !widget.stats.unlockedAvatars.contains('fox')) {
+      widget.stats.unlockedAvatars.add('fox');
+      rewardMessage =
+          '🎁 ${tr(widget.language, 'rewardChest')}: ${tr(widget.language, 'foxAvatar')}';
+    }
+
+    if (widget.stats.stars >= 75 &&
+        !widget.stats.unlockedAvatars.contains('cat')) {
+      widget.stats.unlockedAvatars.add('cat');
+      rewardMessage =
+          '🎁 ${tr(widget.language, 'rewardChest')}: ${tr(widget.language, 'catAvatar')}';
+    }
+
+    void addAchievement(String id) {
+      if (!widget.stats.achievements.contains(id)) {
+        widget.stats.achievements.add(id);
+        rewardMessage =
+            '🏆 ${tr(widget.language, 'achievementUnlocked')}: ${achievementLabel(widget.language, id)}';
+      }
+    }
+
+    if (widget.stats.bestStreak >= 5) addAchievement('streak_5');
+    if (widget.stats.bestStreak >= 10) addAchievement('streak_10');
+    if (widget.stats.stars >= 10) addAchievement('stars_10');
+    if (widget.stats.stars >= 25) addAchievement('stars_25');
+    if (widget.stats.correctAnswers >= 50) addAchievement('correct_50');
+    if (widget.stats.difficultyLevel >= 3) addAchievement('level_3');
+    if (widget.stats.difficultyLevel >= 5) addAchievement('level_5');
   }
 
   void generateQuestion() {
@@ -1686,6 +2423,8 @@ class _MathChallengeScreenState extends State<MathChallengeScreen> {
   }
 
   void updateRewardMessage() {
+    if (rewardMessage.isNotEmpty) return;
+
     if (widget.stats.streak >= 5) {
       rewardMessage = tr(widget.language, 'amazingStreak');
     } else if (widget.stats.streak >= 3) {
@@ -1709,6 +2448,7 @@ class _MathChallengeScreenState extends State<MathChallengeScreen> {
         widget.stats.bestStreak = widget.stats.streak;
       }
       adjustDifficulty();
+      maybeUnlockRewards();
       updateRewardMessage();
 
       setState(() {
@@ -1732,6 +2472,8 @@ class _MathChallengeScreenState extends State<MathChallengeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final progress = (widget.stats.successRate / 100).clamp(0.0, 1.0);
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -1747,119 +2489,261 @@ class _MathChallengeScreenState extends State<MathChallengeScreen> {
       ),
       body: SafeArea(
         child: Center(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
+              constraints: const BoxConstraints(maxWidth: 430),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.calculate, size: 72),
-                  const SizedBox(height: 22),
-                  Text(
-                    '${tr(widget.language, 'age')}: ${widget.profile.age} ${tr(widget.language, 'years')}',
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${tr(widget.language, 'difficulty')}: ${widget.stats.difficultyLevel}/5',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                  PrettyCard(
+                    color: const Color(0xFFEAEFFF),
+                    child: Column(
+                      children: [
+                        Text(
+                          avatarEmoji(widget.profile.avatarId),
+                          style: const TextStyle(fontSize: 56),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${tr(widget.language, 'age')}: ${widget.profile.age} ${tr(widget.language, 'years')}',
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '${tr(widget.language, 'difficulty')}: ${widget.stats.difficultyLevel}/5',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          tr(widget.language, 'solveToUnlock'),
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          '⭐ ${widget.stats.stars}   🔥 ${widget.stats.streak}',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            Text(
+                              tr(widget.language, 'progress'),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                            const Spacer(),
+                            Text(
+                              '${widget.stats.successRate.toStringAsFixed(0)}%',
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(999),
+                          child: LinearProgressIndicator(
+                            value: progress,
+                            minHeight: 10,
+                            backgroundColor: Colors.indigo.withOpacity(0.12),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    tr(widget.language, 'solveToUnlock'),
-                    style: const TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    '⭐ ${widget.stats.stars}   🔥 ${widget.stats.streak}',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  Text(
-                    '$a $operatorSymbol $b = ?',
-                    style: const TextStyle(
-                      fontSize: 44,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 22),
-                  TextField(
-                    controller: _controller,
-                    keyboardType: TextInputType.number,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 28),
-                    decoration: InputDecoration(
-                      hintText: tr(widget.language, 'answer'),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    onSubmitted: (_) => answered ? null : checkAnswer(),
                   ),
                   const SizedBox(height: 18),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton(
-                      onPressed: answered ? null : checkAnswer,
-                      child: Text(tr(widget.language, 'check')),
+                  PrettyCard(
+                    child: Column(
+                      children: [
+                        Text(
+                          '$a $operatorSymbol $b = ?',
+                          style: const TextStyle(
+                            fontSize: 50,
+                            fontWeight: FontWeight.w900,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 22),
+                        TextField(
+                          controller: _controller,
+                          keyboardType: TextInputType.number,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 30,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: tr(widget.language, 'answer'),
+                          ),
+                          onSubmitted: (_) => answered ? null : checkAnswer(),
+                        ),
+                        const SizedBox(height: 18),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: answered ? null : checkAnswer,
+                            child: Text(
+                              tr(widget.language, 'check'),
+                              style: const TextStyle(fontSize: 18),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        if (message.isNotEmpty)
+                          Text(
+                            message,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: isCorrect ? Colors.green : Colors.red,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        if (rewardMessage.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            rewardMessage,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                        const SizedBox(height: 18),
+                        if (isCorrect)
+                          OutlinedButton(
+                            onPressed: generateQuestion,
+                            child: Text(tr(widget.language, 'nextOperation')),
+                          ),
+                        const SizedBox(height: 10),
+                        OutlinedButton(
+                          onPressed: () async {
+                            await LocalStorageService.saveStats(
+                              widget.profile.id,
+                              widget.stats,
+                            );
+                            if (!context.mounted) return;
+                            Navigator.pop(context);
+                          },
+                          child: Text(tr(widget.language, 'backToPanel')),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (message.isNotEmpty)
-                    Text(
-                      message,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: isCorrect ? Colors.green : Colors.red,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  if (rewardMessage.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      rewardMessage,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                  const SizedBox(height: 18),
-                  if (isCorrect)
-                    OutlinedButton(
-                      onPressed: generateQuestion,
-                      child: Text(tr(widget.language, 'nextOperation')),
-                    ),
-                  const SizedBox(height: 18),
-                  OutlinedButton(
-                    onPressed: () async {
-                      await LocalStorageService.saveStats(
-                        widget.profile.id,
-                        widget.stats,
-                      );
-                      if (!context.mounted) return;
-                      Navigator.pop(context);
-                    },
-                    child: Text(tr(widget.language, 'backToPanel')),
                   ),
                 ],
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class AvatarSelectorScreen extends StatelessWidget {
+  final String selectedAvatar;
+  final List<String> unlockedAvatars;
+  final AppLanguage language;
+
+  const AvatarSelectorScreen({
+    super.key,
+    required this.selectedAvatar,
+    required this.unlockedAvatars,
+    required this.language,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const allAvatars = ['bear', 'robot', 'ninja', 'astronaut', 'fox', 'cat'];
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(tr(language, 'chooseAvatar')),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            PrettyCard(
+              color: const Color(0xFFEAEFFF),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    tr(language, 'avatars'),
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(tr(language, 'selectedAvatar')),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            GridView.builder(
+              itemCount: allAvatars.length,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: 1.1,
+              ),
+              itemBuilder: (_, index) {
+                final avatarId = allAvatars[index];
+                final unlocked = unlockedAvatars.contains(avatarId);
+                final selected = selectedAvatar == avatarId;
+
+                return GestureDetector(
+                  onTap: unlocked ? () => Navigator.pop(context, avatarId) : null,
+                  child: PrettyCard(
+                    color: selected
+                        ? Colors.indigo.withOpacity(0.12)
+                        : Colors.white,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          avatarEmoji(avatarId),
+                          style: const TextStyle(fontSize: 42),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          avatarLabel(language, avatarId),
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          unlocked
+                              ? (selected
+                                  ? tr(language, 'selectedAvatar')
+                                  : '')
+                              : tr(language, 'lockedAvatar'),
+                          style: TextStyle(
+                            color: unlocked ? Colors.indigo : Colors.redAccent,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
         ),
       ),
     );
@@ -1886,18 +2770,8 @@ class _BlockedAppsScreenState extends State<BlockedAppsScreen> {
   @override
   void initState() {
     super.initState();
-
-    const appNames = [
-      'YouTube',
-      'TikTok',
-      'Roblox',
-      'WhatsApp',
-      'Chrome',
-      'Juegos',
-    ];
-
     apps = {
-      for (final app in appNames) app: widget.selectedApps.contains(app),
+      for (final appId in kAppIds) appId: widget.selectedApps.contains(appId),
     };
   }
 
@@ -1911,18 +2785,14 @@ class _BlockedAppsScreenState extends State<BlockedAppsScreen> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(16),
-              ),
+            PrettyCard(
+              color: const Color(0xFFEAEFFF),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     tr(widget.language, 'blockedAppsSubtitle'),
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 8),
                   Text(tr(widget.language, 'simulatedFeature')),
@@ -1931,29 +2801,31 @@ class _BlockedAppsScreenState extends State<BlockedAppsScreen> {
             ),
             const SizedBox(height: 16),
             ...apps.entries.map(
-              (entry) => SwitchListTile(
-                value: entry.value,
-                title: Text(entry.key),
-                onChanged: (value) {
-                  setState(() {
-                    apps[entry.key] = value;
-                  });
-                },
+              (entry) => PrettyCard(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: SwitchListTile(
+                  secondary: Icon(appIcon(entry.key)),
+                  value: entry.value,
+                  title: Text(appLabel(widget.language, entry.key)),
+                  onChanged: (value) {
+                    setState(() {
+                      apps[entry.key] = value;
+                    });
+                  },
+                ),
               ),
             ),
             const SizedBox(height: 20),
-            SizedBox(
-              height: 52,
-              child: ElevatedButton(
-                onPressed: () {
-                  final selected = apps.entries
-                      .where((e) => e.value)
-                      .map((e) => e.key)
-                      .toList();
-                  Navigator.pop(context, selected);
-                },
-                child: Text(tr(widget.language, 'save')),
-              ),
+            ElevatedButton(
+              onPressed: () {
+                final selected = apps.entries
+                    .where((e) => e.value)
+                    .map((e) => e.key)
+                    .toList();
+                Navigator.pop(context, selected);
+              },
+              child: Text(tr(widget.language, 'save')),
             ),
             const SizedBox(height: 12),
             OutlinedButton(
@@ -2021,6 +2893,7 @@ class _ChildManagerScreenState extends State<ChildManagerScreen> {
     await LocalStorageService.deleteBlockedApps(child.id);
     await LocalStorageService.deleteAndroidConfig(child.id);
     await LocalStorageService.deleteUnlockSessions(child.id);
+    await LocalStorageService.deleteSetupDone(child.id);
 
     if (children.isEmpty) {
       await LocalStorageService.clearAll();
@@ -2063,16 +2936,11 @@ class _ChildManagerScreenState extends State<ChildManagerScreen> {
                   final child = children[index];
                   final isActive = child.id == widget.activeChildId;
 
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
+                  return PrettyCard(
+                    padding: const EdgeInsets.all(8),
                     child: ListTile(
                       leading: CircleAvatar(
-                        child: Text(child.name.isNotEmpty ? child.name[0] : '?'),
+                        child: Text(avatarEmoji(child.avatarId)),
                       ),
                       title: Text(child.name),
                       subtitle: Text(
@@ -2174,12 +3042,8 @@ class _AndroidSetupScreenState extends State<AndroidSetupScreen> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(16),
-              ),
+            PrettyCard(
+              color: const Color(0xFFEAEFFF),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -2199,98 +3063,110 @@ class _AndroidSetupScreenState extends State<AndroidSetupScreen> {
             const SizedBox(height: 18),
             Text(
               tr(widget.language, 'permissions'),
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 12),
-            SwitchListTile(
-              value: config.usageAccessGranted,
-              title: Text(tr(widget.language, 'usageAccess')),
-              subtitle: Text(config.usageAccessGranted
-                  ? tr(widget.language, 'permissionGranted')
-                  : tr(widget.language, 'permissionMissing')),
-              onChanged: (value) {
-                setState(() {
-                  config.usageAccessGranted = value;
-                });
-              },
-            ),
-            SwitchListTile(
-              value: config.overlayGranted,
-              title: Text(tr(widget.language, 'overlayPermission')),
-              subtitle: Text(config.overlayGranted
-                  ? tr(widget.language, 'permissionGranted')
-                  : tr(widget.language, 'permissionMissing')),
-              onChanged: (value) {
-                setState(() {
-                  config.overlayGranted = value;
-                });
-              },
-            ),
-            SwitchListTile(
-              value: config.foregroundServiceGranted,
-              title: Text(tr(widget.language, 'foregroundService')),
-              subtitle: Text(config.foregroundServiceGranted
-                  ? tr(widget.language, 'permissionGranted')
-                  : tr(widget.language, 'permissionMissing')),
-              onChanged: (value) {
-                setState(() {
-                  config.foregroundServiceGranted = value;
-                });
-              },
+            PrettyCard(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Column(
+                children: [
+                  SwitchListTile(
+                    value: config.usageAccessGranted,
+                    title: Text(tr(widget.language, 'usageAccess')),
+                    subtitle: Text(config.usageAccessGranted
+                        ? tr(widget.language, 'permissionGranted')
+                        : tr(widget.language, 'permissionMissing')),
+                    onChanged: (value) {
+                      setState(() {
+                        config.usageAccessGranted = value;
+                      });
+                    },
+                  ),
+                  SwitchListTile(
+                    value: config.overlayGranted,
+                    title: Text(tr(widget.language, 'overlayPermission')),
+                    subtitle: Text(config.overlayGranted
+                        ? tr(widget.language, 'permissionGranted')
+                        : tr(widget.language, 'permissionMissing')),
+                    onChanged: (value) {
+                      setState(() {
+                        config.overlayGranted = value;
+                      });
+                    },
+                  ),
+                  SwitchListTile(
+                    value: config.foregroundServiceGranted,
+                    title: Text(tr(widget.language, 'foregroundService')),
+                    subtitle: Text(config.foregroundServiceGranted
+                        ? tr(widget.language, 'permissionGranted')
+                        : tr(widget.language, 'permissionMissing')),
+                    onChanged: (value) {
+                      setState(() {
+                        config.foregroundServiceGranted = value;
+                      });
+                    },
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 18),
             Text(
               tr(widget.language, 'unlockMinutes'),
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 12),
-            SegmentedButton<int>(
-              segments: const [
-                ButtonSegment(value: 1, label: Text('1')),
-                ButtonSegment(value: 5, label: Text('5')),
-                ButtonSegment(value: 10, label: Text('10')),
-                ButtonSegment(value: 15, label: Text('15')),
-              ],
-              selected: {config.unlockMinutes},
-              onSelectionChanged: (values) {
-                setState(() {
-                  config.unlockMinutes = values.first;
-                });
-              },
+            PrettyCard(
+              child: SegmentedButton<int>(
+                segments: const [
+                  ButtonSegment(value: 1, label: Text('1')),
+                  ButtonSegment(value: 5, label: Text('5')),
+                  ButtonSegment(value: 10, label: Text('10')),
+                  ButtonSegment(value: 15, label: Text('15')),
+                ],
+                selected: {config.unlockMinutes},
+                onSelectionChanged: (values) {
+                  setState(() {
+                    config.unlockMinutes = values.first;
+                  });
+                },
+              ),
             ),
             const SizedBox(height: 18),
             Text(
               tr(widget.language, 'unlockStatus'),
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 12),
-            if (activeSessions.isEmpty)
-              Text(tr(widget.language, 'noBlockedApps'))
-            else
-              ...activeSessions.map(
-                (session) => ListTile(
-                  leading: const Icon(Icons.lock_open),
-                  title: Text(session.appName),
-                  subtitle: Text(
-                    '${tr(widget.language, 'unlockedUntil')} ${_formatDate(session.expiresAt)}',
-                  ),
-                ),
-              ),
-            const SizedBox(height: 20),
-            SizedBox(
-              height: 52,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(
-                    context,
-                    AndroidSetupResult(
-                      config: config,
-                      unlockSessions: unlockSessions,
+            PrettyCard(
+              child: activeSessions.isEmpty
+                  ? Text(tr(widget.language, 'noBlockedApps'))
+                  : Column(
+                      children: activeSessions
+                          .map(
+                            (session) => ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(Icons.lock_open),
+                              title: Text(appLabel(widget.language, session.appName)),
+                              subtitle: Text(
+                                '${tr(widget.language, 'unlockedUntil')} ${_formatDate(session.expiresAt)}',
+                              ),
+                            ),
+                          )
+                          .toList(),
                     ),
-                  );
-                },
-                child: Text(tr(widget.language, 'save')),
-              ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(
+                  context,
+                  AndroidSetupResult(
+                    config: config,
+                    unlockSessions: unlockSessions,
+                  ),
+                );
+              },
+              child: Text(tr(widget.language, 'save')),
             ),
           ],
         ),
@@ -2355,7 +3231,8 @@ class _ProtectedAppsTestScreenState extends State<ProtectedAppsTestScreen> {
     if (_isUnlocked(appName)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('$appName ${tr(widget.language, 'accessAllowed')}'),
+          content:
+              Text('${appLabel(widget.language, appName)} ${tr(widget.language, 'accessAllowed')}'),
         ),
       );
       return;
@@ -2406,12 +3283,8 @@ class _ProtectedAppsTestScreenState extends State<ProtectedAppsTestScreen> {
           padding: const EdgeInsets.all(20),
           children: [
             if (!widget.config.isReady)
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(16),
-                ),
+              PrettyCard(
+                color: Colors.orange.withOpacity(0.14),
                 child: Text(
                   '${tr(widget.language, 'androidReadiness')}: ${tr(widget.language, 'notReady')}',
                 ),
@@ -2422,18 +3295,22 @@ class _ProtectedAppsTestScreenState extends State<ProtectedAppsTestScreen> {
                 final unlocked = _isUnlocked(app);
                 final expiry = _getExpiry(app);
 
-                return Card(
-                  child: ListTile(
-                    leading: Icon(unlocked ? Icons.lock_open : Icons.lock),
-                    title: Text(app),
-                    subtitle: Text(
-                      unlocked && expiry != null
-                          ? '${tr(widget.language, 'unlockedUntil')} ${_formatDate(expiry)}'
-                          : tr(widget.language, 'locked'),
-                    ),
-                    trailing: ElevatedButton(
-                      onPressed: () => _openApp(app),
-                      child: Text(tr(widget.language, 'openProtectedApp')),
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: PrettyCard(
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(unlocked ? Icons.lock_open : Icons.lock),
+                      title: Text(appLabel(widget.language, app)),
+                      subtitle: Text(
+                        unlocked && expiry != null
+                            ? '${tr(widget.language, 'unlockedUntil')} ${_formatDate(expiry)}'
+                            : tr(widget.language, 'locked'),
+                      ),
+                      trailing: ElevatedButton(
+                        onPressed: () => _openApp(app),
+                        child: Text(tr(widget.language, 'openProtectedApp')),
+                      ),
                     ),
                   ),
                 );
@@ -2443,12 +3320,12 @@ class _ProtectedAppsTestScreenState extends State<ProtectedAppsTestScreen> {
             if (cleanedSessions.isNotEmpty)
               Text(
                 tr(widget.language, 'unlockStatus'),
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
               ),
             ...cleanedSessions.map(
               (session) => ListTile(
                 leading: const Icon(Icons.timer),
-                title: Text(session.appName),
+                title: Text(appLabel(widget.language, session.appName)),
                 subtitle: Text(
                   '${tr(widget.language, 'unlockedUntil')} ${_formatDate(session.expiresAt)}',
                 ),
@@ -2623,82 +3500,93 @@ class _ProtectedAppGateScreenState extends State<ProtectedAppGateScreen> {
     return Scaffold(
       appBar: AppBar(
         title:
-            Text('${tr(widget.language, 'protectedArea')} · ${widget.appName}'),
+            Text('${tr(widget.language, 'protectedArea')} · ${appLabel(widget.language, widget.appName)}'),
       ),
       body: SafeArea(
         child: Center(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
+              constraints: const BoxConstraints(maxWidth: 430),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.shield, size: 72),
+                  PrettyCard(
+                    color: const Color(0xFFEAEFFF),
+                    child: Column(
+                      children: [
+                        const Icon(Icons.shield, size: 68),
+                        const SizedBox(height: 14),
+                        Text(
+                          tr(widget.language, 'thisAppWouldBeBlocked'),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          tr(widget.language, 'requireMathBeforeOpen'),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 18),
-                  Text(
-                    tr(widget.language, 'thisAppWouldBeBlocked'),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    tr(widget.language, 'requireMathBeforeOpen'),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    '$a $operatorSymbol $b = ?',
-                    style: const TextStyle(
-                      fontSize: 44,
-                      fontWeight: FontWeight.w800,
+                  PrettyCard(
+                    child: Column(
+                      children: [
+                        Text(
+                          '$a $operatorSymbol $b = ?',
+                          style: const TextStyle(
+                            fontSize: 48,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        TextField(
+                          controller: _controller,
+                          keyboardType: TextInputType.number,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 30,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: tr(widget.language, 'answer'),
+                          ),
+                          onSubmitted: (_) => answered ? null : _checkAnswer(),
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: answered ? null : _checkAnswer,
+                            child: Text(tr(widget.language, 'check')),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        if (message.isNotEmpty)
+                          Text(
+                            message,
+                            style: TextStyle(
+                              color: isCorrect ? Colors.green : Colors.red,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        const SizedBox(height: 18),
+                        if (isCorrect)
+                          FilledButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: Text(tr(widget.language, 'unlockNow')),
+                          ),
+                        if (!isCorrect) ...[
+                          const SizedBox(height: 8),
+                          OutlinedButton(
+                            onPressed: _generateQuestion,
+                            child: Text(tr(widget.language, 'nextOperation')),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  TextField(
-                    controller: _controller,
-                    keyboardType: TextInputType.number,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 28),
-                    decoration: InputDecoration(
-                      hintText: tr(widget.language, 'answer'),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    onSubmitted: (_) => answered ? null : _checkAnswer(),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton(
-                      onPressed: answered ? null : _checkAnswer,
-                      child: Text(tr(widget.language, 'check')),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (message.isNotEmpty)
-                    Text(
-                      message,
-                      style: TextStyle(
-                        color: isCorrect ? Colors.green : Colors.red,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  const SizedBox(height: 18),
-                  if (isCorrect)
-                    FilledButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: Text(tr(widget.language, 'unlockNow')),
-                    ),
-                  if (!isCorrect) ...[
-                    const SizedBox(height: 8),
-                    OutlinedButton(
-                      onPressed: _generateQuestion,
-                      child: Text(tr(widget.language, 'nextOperation')),
-                    ),
-                  ],
                 ],
               ),
             ),
