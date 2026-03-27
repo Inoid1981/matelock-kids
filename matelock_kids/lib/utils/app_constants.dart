@@ -52,22 +52,21 @@ IconData appIcon(String appId) {
       return Icons.apps_outlined;
   }
 }
-
 String avatarEmoji(String avatarId) {
   switch (avatarId) {
     case 'robot':
-      return '??';
+      return String.fromCharCode(0x1F916); // ??
     case 'ninja':
-      return '??';
+      return String.fromCharCodes([0x1F977]); // ??
     case 'astronaut':
-      return '?????';
+      return String.fromCharCodes([0x1F468, 0x200D, 0x1F680]); // ?????
     case 'fox':
-      return '??';
+      return String.fromCharCode(0x1F98A); // ??
     case 'cat':
-      return '??';
+      return String.fromCharCode(0x1F431); // ??
     case 'bear':
     default:
-      return '??';
+      return String.fromCharCode(0x1F9F8); // ??
   }
 }
 
