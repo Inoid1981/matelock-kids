@@ -1,9 +1,6 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'dart:math';
-
-import 'package:flutter/material.dart';
 
 import 'models/android_config.dart';
 import 'models/app_stats.dart';
@@ -18,9 +15,6 @@ import 'widgets/pretty_card.dart';
 void main() {
   runApp(const MateLockKidsApp());
 }
-
-enum AppLanguage { spanish, english }
-
 
 class MateLockKidsApp extends StatefulWidget {
   const MateLockKidsApp({super.key});
@@ -89,60 +83,6 @@ class _MateLockKidsAppState extends State<MateLockKidsApp> {
         language: language,
         onLanguageChanged: changeLanguage,
       ),
-    );
-  }
-}
-
-
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'name': name,
-      'age': age,
-      'avatarId': avatarId,
-    };
-  }
-
-  factory ChildProfile.fromMap(Map<String, dynamic> map) {
-    return ChildProfile(
-      id: map['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
-      name: map['name'] ?? 'Niño',
-      age: map['age'] ?? 9,
-      avatarId: map['avatarId'] ?? 'bear',
-    );
-  }
-
-  ChildProfile copyWith({
-    String? id,
-    String? name,
-    int? age,
-    String? avatarId,
-  }) {
-    return ChildProfile(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      age: age ?? this.age,
-      avatarId: avatarId ?? this.avatarId,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: padding,
-      decoration: BoxDecoration(
-        color: color ?? Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            blurRadius: 18,
-            spreadRadius: 0,
-            color: Colors.black.withOpacity(0.05),
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: child,
     );
   }
 }
@@ -264,29 +204,6 @@ class _StartupScreenState extends State<StartupScreen> {
       unlockSessions: unlockSessions,
       language: widget.language,
       onLanguageChanged: widget.onLanguageChanged,
-    );
-  }
-}
-
-  @override
-  Widget build(BuildContext context) {
-    return DropdownButton<AppLanguage>(
-      value: language,
-      underline: const SizedBox(),
-      borderRadius: BorderRadius.circular(16),
-      onChanged: (value) {
-        if (value != null) onChanged(value);
-      },
-      items: const [
-        DropdownMenuItem(
-          value: AppLanguage.spanish,
-          child: Text('ES'),
-        ),
-        DropdownMenuItem(
-          value: AppLanguage.english,
-          child: Text('EN'),
-        ),
-      ],
     );
   }
 }
@@ -1177,12 +1094,12 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       ),
       _StatCard(
         title: tr(widget.language, 'stars'),
-        value: '⭐ ${stats.stars}',
+        value: '? ${stats.stars}',
         icon: Icons.star_outline,
       ),
       _StatCard(
         title: tr(widget.language, 'bestStreak'),
-        value: '🔥 ${stats.bestStreak}',
+        value: '?? ${stats.bestStreak}',
         icon: Icons.local_fire_department_outlined,
       ),
       _StatCard(
@@ -1276,22 +1193,21 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                     '${tr(widget.language, 'androidReadiness')}: ${androidConfig.isReady ? tr(widget.language, 'ready') : tr(widget.language, 'notReady')}',
                   ),
                   const SizedBox(height: 10),
-
-SwitchListTile(
-  value: protectionEnabled,
-  title: const Text(
-    'Protección activa',
-    style: TextStyle(fontWeight: FontWeight.bold),
-  ),
-  subtitle: Text(
-    protectionEnabled ? 'Activada' : 'Desactivada',
-  ),
-  onChanged: (value) {
-    setState(() {
-      protectionEnabled = value;
-    });
-  },
-),
+                  SwitchListTile(
+                    value: protectionEnabled,
+                    title: const Text(
+                      'Protección activa',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(
+                      protectionEnabled ? 'Activada' : 'Desactivada',
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        protectionEnabled = value;
+                      });
+                    },
+                  ),
                   const SizedBox(height: 14),
                   Wrap(
                     spacing: 10,
@@ -1545,42 +1461,42 @@ class _MathChallengeScreenState extends State<MathChallengeScreen> {
         !widget.stats.unlockedAvatars.contains('robot')) {
       widget.stats.unlockedAvatars.add('robot');
       rewardMessage =
-          '🎁 ${tr(widget.language, 'rewardChest')}: ${tr(widget.language, 'robotAvatar')}';
+          '?? ${tr(widget.language, 'rewardChest')}: ${tr(widget.language, 'robotAvatar')}';
     }
 
     if (widget.stats.stars >= 20 &&
         !widget.stats.unlockedAvatars.contains('ninja')) {
       widget.stats.unlockedAvatars.add('ninja');
       rewardMessage =
-          '🎁 ${tr(widget.language, 'rewardChest')}: ${tr(widget.language, 'ninjaAvatar')}';
+          '?? ${tr(widget.language, 'rewardChest')}: ${tr(widget.language, 'ninjaAvatar')}';
     }
 
     if (widget.stats.stars >= 35 &&
         !widget.stats.unlockedAvatars.contains('astronaut')) {
       widget.stats.unlockedAvatars.add('astronaut');
       rewardMessage =
-          '🎁 ${tr(widget.language, 'rewardChest')}: ${tr(widget.language, 'astronautAvatar')}';
+          '?? ${tr(widget.language, 'rewardChest')}: ${tr(widget.language, 'astronautAvatar')}';
     }
 
     if (widget.stats.stars >= 50 &&
         !widget.stats.unlockedAvatars.contains('fox')) {
       widget.stats.unlockedAvatars.add('fox');
       rewardMessage =
-          '🎁 ${tr(widget.language, 'rewardChest')}: ${tr(widget.language, 'foxAvatar')}';
+          '?? ${tr(widget.language, 'rewardChest')}: ${tr(widget.language, 'foxAvatar')}';
     }
 
     if (widget.stats.stars >= 75 &&
         !widget.stats.unlockedAvatars.contains('cat')) {
       widget.stats.unlockedAvatars.add('cat');
       rewardMessage =
-          '🎁 ${tr(widget.language, 'rewardChest')}: ${tr(widget.language, 'catAvatar')}';
+          '?? ${tr(widget.language, 'rewardChest')}: ${tr(widget.language, 'catAvatar')}';
     }
 
     void addAchievement(String id) {
       if (!widget.stats.achievements.contains(id)) {
         widget.stats.achievements.add(id);
         rewardMessage =
-            '🏆 ${tr(widget.language, 'achievementUnlocked')}: ${achievementLabel(widget.language, id)}';
+            '?? ${tr(widget.language, 'achievementUnlocked')}: ${achievementLabel(widget.language, id)}';
       }
     }
 
@@ -1811,7 +1727,7 @@ class _MathChallengeScreenState extends State<MathChallengeScreen> {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          '⭐ ${widget.stats.stars}   🔥 ${widget.stats.streak}',
+                          '? ${widget.stats.stars}   ?? ${widget.stats.streak}',
                           style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w800,
