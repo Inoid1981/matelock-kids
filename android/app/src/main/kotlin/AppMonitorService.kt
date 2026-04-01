@@ -33,7 +33,11 @@ class AppMonitorService : Service() {
 
     private val checkRunnable = object : Runnable {
         override fun run() {
-            checkForegroundApp()
+            try {
+                checkForegroundApp()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
             handler.postDelayed(this, 1500)
         }
     }
@@ -51,6 +55,10 @@ class AppMonitorService : Service() {
 
         startForeground(NOTIFICATION_ID, notification)
         handler.post(checkRunnable)
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        return START_STICKY
     }
 
     private fun checkForegroundApp() {
@@ -77,15 +85,19 @@ class AppMonitorService : Service() {
                 lastLaunchTime = now
 
                 val intent = Intent(this, MainActivity::class.java)
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                intent.addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP
+                )
                 startActivity(intent)
             }
         }
     }
 
     override fun onDestroy() {
-        super.onDestroy()
         handler.removeCallbacks(checkRunnable)
+        super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -102,4 +114,3 @@ class AppMonitorService : Service() {
         }
     }
 }
-

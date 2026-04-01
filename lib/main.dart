@@ -1,5 +1,6 @@
-import 'dart:math';
+﻿import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -14,11 +15,9 @@ import 'widgets/language_switcher.dart';
 import 'widgets/pretty_card.dart';
 
 const MethodChannel androidChannel = MethodChannel('matelock_kids/android');
-void main() async {
+
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // await androidChannel.invokeMethod('startService');
-
   runApp(const MateLockKidsApp());
 }
 
@@ -710,7 +709,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   late String parentPin;
   late AndroidConfig androidConfig;
   late List<UnlockSession> unlockSessions;
-  bool protectionEnabled = true;
+  bool protectionEnabled = false;
 
   @override
   void initState() {
@@ -724,6 +723,104 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     unlockSessions = List<UnlockSession>.from(
       widget.unlockSessions,
     ).where((e) => e.isActive).toList();
+    protectionEnabled = androidConfig.foregroundServiceGranted;
+  }
+
+  bool get _isAndroid =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  Future<void> _toggleProtection(bool value) async {
+    if (!_isAndroid) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('El bloqueo real solo funciona en Android.'),
+        ),
+      );
+      return;
+    }
+
+    if (value && blockedApps.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(tr(widget.language, 'noBlockedApps'))),
+      );
+      return;
+    }
+
+    setState(() {
+      protectionEnabled = value;
+    });
+
+    try {
+      if (value) {
+        final hasOverlay =
+            await androidChannel.invokeMethod<bool>('canDrawOverlays') ?? false;
+        if (!hasOverlay) {
+          await androidChannel.invokeMethod('openOverlaySettings');
+          if (!mounted) return;
+          setState(() {
+            protectionEnabled = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Activa "Mostrar sobre otras apps" y vuelve.'),
+            ),
+          );
+          return;
+        }
+
+        final hasUsage =
+            await androidChannel.invokeMethod<bool>('hasUsageAccess') ?? false;
+        if (!hasUsage) {
+          await androidChannel.invokeMethod('openUsageAccessSettings');
+          if (!mounted) return;
+          setState(() {
+            protectionEnabled = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Activa "Acceso de uso" y vuelve.')),
+          );
+          return;
+        }
+
+        await androidChannel.invokeMethod('startMonitorService');
+
+        androidConfig.overlayGranted = hasOverlay;
+        androidConfig.usageAccessGranted = hasUsage;
+        androidConfig.foregroundServiceGranted = true;
+        await LocalStorageService.saveAndroidConfig(
+          activeChild.id,
+          androidConfig,
+        );
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Protección activada')));
+      } else {
+        await androidChannel.invokeMethod('stopMonitorService');
+
+        androidConfig.foregroundServiceGranted = false;
+        await LocalStorageService.saveAndroidConfig(
+          activeChild.id,
+          androidConfig,
+        );
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Protección desactivada')));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        protectionEnabled = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al cambiar protección: $e')),
+      );
+    }
   }
 
   Future<void> _refreshActiveChild() async {
@@ -755,6 +852,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       blockedApps = refreshedBlockedApps;
       androidConfig = refreshedAndroidConfig;
       unlockSessions = refreshedUnlocks.where((e) => e.isActive).toList();
+      protectionEnabled = refreshedAndroidConfig.foregroundServiceGranted;
     });
   }
 
@@ -966,6 +1064,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         unlockSessions = result.unlockSessions
             .where((e) => e.isActive)
             .toList();
+        protectionEnabled = result.config.foregroundServiceGranted;
       });
       await LocalStorageService.saveAndroidConfig(
         activeChild.id,
@@ -1217,11 +1316,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                     subtitle: Text(
                       protectionEnabled ? 'Activada' : 'Desactivada',
                     ),
-                    onChanged: (value) {
-                      setState(() {
-                        protectionEnabled = value;
-                      });
-                    },
+                    onChanged: _toggleProtection,
                   ),
                   const SizedBox(height: 14),
                   Wrap(
@@ -2210,13 +2305,19 @@ class AndroidSetupScreen extends StatefulWidget {
   State<AndroidSetupScreen> createState() => _AndroidSetupScreenState();
 }
 
-class _AndroidSetupScreenState extends State<AndroidSetupScreen> {
+class _AndroidSetupScreenState extends State<AndroidSetupScreen>
+    with WidgetsBindingObserver {
   late AndroidConfig config;
   late List<UnlockSession> unlockSessions;
+
+  bool get _isAndroid =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
     config = AndroidConfig(
       usageAccessGranted: widget.config.usageAccessGranted,
       overlayGranted: widget.config.overlayGranted,
@@ -2224,12 +2325,126 @@ class _AndroidSetupScreenState extends State<AndroidSetupScreen> {
       unlockMinutes: widget.config.unlockMinutes,
     );
     unlockSessions = widget.unlockSessions.where((e) => e.isActive).toList();
+
+    _syncPermissionsFromAndroid();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _syncPermissionsFromAndroid();
+    }
+  }
+
+  Future<void> _syncPermissionsFromAndroid() async {
+    if (!_isAndroid) return;
+
+    try {
+      final hasOverlay =
+          await androidChannel.invokeMethod<bool>('canDrawOverlays') ?? false;
+      final hasUsage =
+          await androidChannel.invokeMethod<bool>('hasUsageAccess') ?? false;
+
+      if (!mounted) return;
+      setState(() {
+        config.overlayGranted = hasOverlay;
+        config.usageAccessGranted = hasUsage;
+      });
+    } catch (_) {}
   }
 
   String _formatDate(DateTime dt) {
     final h = dt.hour.toString().padLeft(2, '0');
     final m = dt.minute.toString().padLeft(2, '0');
     return '$h:$m';
+  }
+
+  Future<void> _openUsageAccess() async {
+    if (!_isAndroid) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Esto solo funciona en Android.')),
+      );
+      return;
+    }
+
+    await androidChannel.invokeMethod('openUsageAccessSettings');
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Activa el acceso de uso y vuelve a la app.'),
+      ),
+    );
+  }
+
+  Future<void> _openOverlayPermission() async {
+    if (!_isAndroid) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Esto solo funciona en Android.')),
+      );
+      return;
+    }
+
+    await androidChannel.invokeMethod('openOverlaySettings');
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Activa mostrar sobre otras apps y vuelve.'),
+      ),
+    );
+  }
+
+  Future<void> _toggleForegroundService(bool value) async {
+    if (!_isAndroid) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Esto solo funciona en Android.')),
+      );
+      return;
+    }
+
+    if (value && (!config.usageAccessGranted || !config.overlayGranted)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Primero activa Acceso de uso y Superposición.'),
+        ),
+      );
+      return;
+    }
+
+    try {
+      if (value) {
+        await androidChannel.invokeMethod('startMonitorService');
+      } else {
+        await androidChannel.invokeMethod('stopMonitorService');
+      }
+
+      if (!mounted) return;
+      setState(() {
+        config.foregroundServiceGranted = value;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            value ? 'Servicio en primer plano activado' : 'Servicio detenido',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error con el servicio: $e')));
+    }
   }
 
   @override
@@ -2278,10 +2493,14 @@ class _AndroidSetupScreenState extends State<AndroidSetupScreen> {
                           ? tr(widget.language, 'permissionGranted')
                           : tr(widget.language, 'permissionMissing'),
                     ),
-                    onChanged: (value) {
-                      setState(() {
-                        config.usageAccessGranted = value;
-                      });
+                    onChanged: (value) async {
+                      if (value) {
+                        await _openUsageAccess();
+                      } else {
+                        setState(() {
+                          config.usageAccessGranted = false;
+                        });
+                      }
                     },
                   ),
                   SwitchListTile(
@@ -2292,10 +2511,14 @@ class _AndroidSetupScreenState extends State<AndroidSetupScreen> {
                           ? tr(widget.language, 'permissionGranted')
                           : tr(widget.language, 'permissionMissing'),
                     ),
-                    onChanged: (value) {
-                      setState(() {
-                        config.overlayGranted = value;
-                      });
+                    onChanged: (value) async {
+                      if (value) {
+                        await _openOverlayPermission();
+                      } else {
+                        setState(() {
+                          config.overlayGranted = false;
+                        });
+                      }
                     },
                   ),
                   SwitchListTile(
@@ -2306,11 +2529,7 @@ class _AndroidSetupScreenState extends State<AndroidSetupScreen> {
                           ? tr(widget.language, 'permissionGranted')
                           : tr(widget.language, 'permissionMissing'),
                     ),
-                    onChanged: (value) {
-                      setState(() {
-                        config.foregroundServiceGranted = value;
-                      });
-                    },
+                    onChanged: _toggleForegroundService,
                   ),
                 ],
               ),
