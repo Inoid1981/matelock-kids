@@ -12,7 +12,10 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+
     private val CHANNEL = "matelock_kids/android"
+    private val PREFS_NAME = "matelock_native"
+    private val BLOCKED_APPS_KEY = "blocked_app_ids"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -42,6 +45,13 @@ class MainActivity : FlutterActivity() {
                         val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
                         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         startActivity(intent)
+                        result.success(true)
+                    }
+
+                    "setBlockedApps" -> {
+                        val appIds = call.argument<List<String>>("appIds") ?: emptyList()
+                        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                        prefs.edit().putStringSet(BLOCKED_APPS_KEY, appIds.toSet()).apply()
                         result.success(true)
                     }
 

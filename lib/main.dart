@@ -729,6 +729,18 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   bool get _isAndroid =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
+  Future<void> _syncBlockedAppsWithAndroid() async {
+    if (!_isAndroid) return;
+
+    try {
+      await androidChannel.invokeMethod('setBlockedApps', {
+        'appIds': blockedApps,
+      });
+    } catch (e) {
+      debugPrint('Error syncing blocked apps: $e');
+    }
+  }
+
   Future<void> _toggleProtection(bool value) async {
     if (!_isAndroid) {
       if (!mounted) return;
@@ -783,7 +795,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
           );
           return;
         }
-
+        await _syncBlockedAppsWithAndroid();
         await androidChannel.invokeMethod('startMonitorService');
 
         androidConfig.overlayGranted = hasOverlay;

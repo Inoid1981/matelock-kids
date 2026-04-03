@@ -18,15 +18,11 @@ class AppMonitorService : Service() {
     companion object {
         private const val CHANNEL_ID = "matelock_monitor"
         private const val NOTIFICATION_ID = 1001
+        private const val PREFS_NAME = "matelock_native"
+        private const val BLOCKED_APPS_KEY = "blocked_app_ids"
     }
 
     private val handler = Handler(Looper.getMainLooper())
-
-    private val blockedApps = listOf(
-        "com.google.android.youtube",
-        "com.zhiliaoapp.musically",
-        "com.instagram.android"
-    )
 
     private var lastOpenedApp: String? = null
     private var lastLaunchTime: Long = 0
@@ -61,7 +57,59 @@ class AppMonitorService : Service() {
         return START_STICKY
     }
 
+    private fun loadBlockedAppIds(): Set<String> {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getStringSet(BLOCKED_APPS_KEY, emptySet()) ?: emptySet()
+    }
+
+    private fun resolveBlockedPackages(blockedIds: Set<String>): Set<String> {
+        val result = mutableSetOf<String>()
+
+        for (id in blockedIds) {
+            when (id) {
+                "youtube" -> {
+                    result.add("com.google.android.youtube")
+                }
+
+                "instagram" -> {
+                    result.add("com.instagram.android")
+                }
+
+                "tiktok" -> {
+                    result.add("com.zhiliaoapp.musically")
+                }
+
+                "chrome" -> {
+                    result.add("com.android.chrome")
+                }
+
+                "whatsapp" -> {
+                    result.add("com.whatsapp")
+                }
+
+                "calculator" -> {
+                    result.add("com.google.android.calculator")
+                    result.add("com.android.calculator2")
+                    result.add("com.miui.calculator")
+                    result.add("com.samsung.android.calculator")
+                    result.add("com.coloros.calculator")
+                }
+
+                else -> {
+                    if (id.contains(".")) {
+                        result.add(id)
+                    }
+                }
+            }
+        }
+
+        return result
+    }
+
     private fun checkForegroundApp() {
+        val blockedPackages = resolveBlockedPackages(loadBlockedAppIds())
+        if (blockedPackages.isEmpty()) return
+
         val usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         val time = System.currentTimeMillis()
 
@@ -77,7 +125,7 @@ class AppMonitorService : Service() {
 
         if (recentApp.packageName == packageName) return
 
-        if (blockedApps.contains(recentApp.packageName)) {
+        if (blockedPackages.contains(recentApp.packageName)) {
             val now = System.currentTimeMillis()
 
             if (recentApp.packageName != lastOpenedApp || now - lastLaunchTime > 3000) {
