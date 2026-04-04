@@ -20,6 +20,7 @@ class AppMonitorService : Service() {
         private const val NOTIFICATION_ID = 1001
         private const val PREFS_NAME = "matelock_native"
         private const val BLOCKED_APPS_KEY = "blocked_app_ids"
+        private const val UNLOCK_UNTIL_PACKAGE_PREFIX = "unlock_until_pkg_"
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -62,42 +63,52 @@ class AppMonitorService : Service() {
         return prefs.getStringSet(BLOCKED_APPS_KEY, emptySet()) ?: emptySet()
     }
 
-    private fun resolveBlockedPackages(blockedIds: Set<String>): Set<String> {
-        val result = mutableSetOf<String>()
+    private fun getUnlockUntilForPackage(pkg: String): Long {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getLong("$UNLOCK_UNTIL_PACKAGE_PREFIX$pkg", 0L)
+    }
+
+    private fun clearUnlockForPackage(pkg: String) {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().remove("$UNLOCK_UNTIL_PACKAGE_PREFIX$pkg").apply()
+    }
+
+    private fun resolveBlockedPackageMap(blockedIds: Set<String>): Map<String, String> {
+        val result = mutableMapOf<String, String>()
 
         for (id in blockedIds) {
             when (id) {
                 "youtube" -> {
-                    result.add("com.google.android.youtube")
+                    result["com.google.android.youtube"] = id
                 }
 
                 "instagram" -> {
-                    result.add("com.instagram.android")
+                    result["com.instagram.android"] = id
                 }
 
                 "tiktok" -> {
-                    result.add("com.zhiliaoapp.musically")
+                    result["com.zhiliaoapp.musically"] = id
                 }
 
                 "chrome" -> {
-                    result.add("com.android.chrome")
+                    result["com.android.chrome"] = id
                 }
 
                 "whatsapp" -> {
-                    result.add("com.whatsapp")
+                    result["com.whatsapp"] = id
                 }
 
                 "calculator" -> {
-                    result.add("com.google.android.calculator")
-                    result.add("com.android.calculator2")
-                    result.add("com.miui.calculator")
-                    result.add("com.samsung.android.calculator")
-                    result.add("com.coloros.calculator")
+                    result["com.google.android.calculator"] = id
+                    result["com.android.calculator2"] = id
+                    result["com.miui.calculator"] = id
+                    result["com.samsung.android.calculator"] = id
+                    result["com.coloros.calculator"] = id
                 }
 
                 else -> {
                     if (id.contains(".")) {
-                        result.add(id)
+                        result[id] = id
                     }
                 }
             }
@@ -107,8 +118,8 @@ class AppMonitorService : Service() {
     }
 
     private fun checkForegroundApp() {
-        val blockedPackages = resolveBlockedPackages(loadBlockedAppIds())
-        if (blockedPackages.isEmpty()) return
+        val blockedPackageMap = resolveBlockedPackageMap(loadBlockedAppIds())
+        if (blockedPackageMap.isEmpty()) return
 
         val usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         val time = System.currentTimeMillis()
@@ -122,24 +133,33 @@ class AppMonitorService : Service() {
         if (stats.isNullOrEmpty()) return
 
         val recentApp = stats.maxByOrNull { it.lastTimeUsed } ?: return
+        val currentPackageName = recentApp.packageName
 
-        if (recentApp.packageName == packageName) return
+        if (currentPackageName == this.packageName) return
+        if (!blockedPackageMap.containsKey(currentPackageName)) return
 
-        if (blockedPackages.contains(recentApp.packageName)) {
-            val now = System.currentTimeMillis()
+        val now = System.currentTimeMillis()
+        val unlockUntil = getUnlockUntilForPackage(currentPackageName)
 
-            if (recentApp.packageName != lastOpenedApp || now - lastLaunchTime > 3000) {
-                lastOpenedApp = recentApp.packageName
-                lastLaunchTime = now
+        if (unlockUntil > now) {
+            return
+        }
 
-                val intent = Intent(this, MainActivity::class.java)
-                intent.addFlags(
-                    Intent.FLAG_ACTIVITY_NEW_TASK or
+        if (unlockUntil in 1 until now) {
+            clearUnlockForPackage(currentPackageName)
+        }
+
+        if (currentPackageName != lastOpenedApp || now - lastLaunchTime > 3000) {
+            lastOpenedApp = currentPackageName
+            lastLaunchTime = now
+
+            val intent = Intent(this, MainActivity::class.java)
+            intent.addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_SINGLE_TOP or
                     Intent.FLAG_ACTIVITY_CLEAR_TOP
-                )
-                startActivity(intent)
-            }
+            )
+            startActivity(intent)
         }
     }
 
@@ -157,7 +177,8 @@ class AppMonitorService : Service() {
                 "MateLock Monitor",
                 NotificationManager.IMPORTANCE_LOW
             )
-            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val manager =
+                getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(channel)
         }
     }

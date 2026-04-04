@@ -701,7 +701,8 @@ class ParentDashboardScreen extends StatefulWidget {
   State<ParentDashboardScreen> createState() => _ParentDashboardScreenState();
 }
 
-class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
+class _ParentDashboardScreenState extends State<ParentDashboardScreen>
+    with WidgetsBindingObserver {
   late List<ChildProfile> children;
   late ChildProfile activeChild;
   late AppStats stats;
@@ -710,10 +711,12 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   late AndroidConfig androidConfig;
   late List<UnlockSession> unlockSessions;
   bool protectionEnabled = false;
+  bool _pendingProtectionActivation = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     children = List<ChildProfile>.from(widget.children);
     activeChild = widget.activeChild;
     stats = widget.stats;
@@ -724,6 +727,23 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       widget.unlockSessions,
     ).where((e) => e.isActive).toList();
     protectionEnabled = androidConfig.foregroundServiceGranted;
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (_pendingProtectionActivation) {
+        _resumeProtectionActivation();
+      } else {
+        _refreshAndroidPermissionStatus();
+      }
+    }
   }
 
   bool get _isAndroid =>
@@ -738,6 +758,82 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       });
     } catch (e) {
       debugPrint('Error syncing blocked apps: $e');
+    }
+  }
+
+  Future<void> _refreshAndroidPermissionStatus() async {
+    if (!_isAndroid) return;
+
+    try {
+      final hasOverlay =
+          await androidChannel.invokeMethod<bool>('canDrawOverlays') ?? false;
+      final hasUsage =
+          await androidChannel.invokeMethod<bool>('hasUsageAccess') ?? false;
+
+      if (!mounted) return;
+      setState(() {
+        androidConfig.overlayGranted = hasOverlay;
+        androidConfig.usageAccessGranted = hasUsage;
+      });
+    } catch (e) {
+      debugPrint('Error refreshing Android permission status: $e');
+    }
+  }
+
+  Future<void> _resumeProtectionActivation() async {
+    if (!_isAndroid) return;
+
+    try {
+      final hasOverlay =
+          await androidChannel.invokeMethod<bool>('canDrawOverlays') ?? false;
+      final hasUsage =
+          await androidChannel.invokeMethod<bool>('hasUsageAccess') ?? false;
+
+      if (!mounted) return;
+
+      setState(() {
+        androidConfig.overlayGranted = hasOverlay;
+        androidConfig.usageAccessGranted = hasUsage;
+      });
+
+      if (!hasOverlay) {
+        await androidChannel.invokeMethod('openOverlaySettings');
+        return;
+      }
+
+      if (!hasUsage) {
+        await androidChannel.invokeMethod('openUsageAccessSettings');
+        return;
+      }
+
+      await _syncBlockedAppsWithAndroid();
+      await androidChannel.invokeMethod('startMonitorService');
+
+      androidConfig.foregroundServiceGranted = true;
+      await LocalStorageService.saveAndroidConfig(
+        activeChild.id,
+        androidConfig,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        protectionEnabled = true;
+        _pendingProtectionActivation = false;
+      });
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Protección activada')));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        protectionEnabled = false;
+        _pendingProtectionActivation = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al activar protección: $e')),
+      );
     }
   }
 
@@ -760,77 +856,38 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       return;
     }
 
-    setState(() {
-      protectionEnabled = value;
-    });
+    if (value) {
+      setState(() {
+        protectionEnabled = false;
+        _pendingProtectionActivation = true;
+      });
+
+      await _resumeProtectionActivation();
+      return;
+    }
 
     try {
-      if (value) {
-        final hasOverlay =
-            await androidChannel.invokeMethod<bool>('canDrawOverlays') ?? false;
-        if (!hasOverlay) {
-          await androidChannel.invokeMethod('openOverlaySettings');
-          if (!mounted) return;
-          setState(() {
-            protectionEnabled = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Activa "Mostrar sobre otras apps" y vuelve.'),
-            ),
-          );
-          return;
-        }
+      await androidChannel.invokeMethod('stopMonitorService');
 
-        final hasUsage =
-            await androidChannel.invokeMethod<bool>('hasUsageAccess') ?? false;
-        if (!hasUsage) {
-          await androidChannel.invokeMethod('openUsageAccessSettings');
-          if (!mounted) return;
-          setState(() {
-            protectionEnabled = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Activa "Acceso de uso" y vuelve.')),
-          );
-          return;
-        }
-        await _syncBlockedAppsWithAndroid();
-        await androidChannel.invokeMethod('startMonitorService');
+      androidConfig.foregroundServiceGranted = false;
+      await LocalStorageService.saveAndroidConfig(
+        activeChild.id,
+        androidConfig,
+      );
 
-        androidConfig.overlayGranted = hasOverlay;
-        androidConfig.usageAccessGranted = hasUsage;
-        androidConfig.foregroundServiceGranted = true;
-        await LocalStorageService.saveAndroidConfig(
-          activeChild.id,
-          androidConfig,
-        );
-
-        if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Protección activada')));
-      } else {
-        await androidChannel.invokeMethod('stopMonitorService');
-
-        androidConfig.foregroundServiceGranted = false;
-        await LocalStorageService.saveAndroidConfig(
-          activeChild.id,
-          androidConfig,
-        );
-
-        if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Protección desactivada')));
-      }
-    } catch (e) {
       if (!mounted) return;
       setState(() {
         protectionEnabled = false;
+        _pendingProtectionActivation = false;
       });
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Protección desactivada')));
+    } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al cambiar protección: $e')),
+        SnackBar(content: Text('Error al desactivar protección: $e')),
       );
     }
   }
@@ -958,7 +1015,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         blockedApps = result;
       });
       await LocalStorageService.saveBlockedApps(activeChild.id, blockedApps);
-      _evaluateDashboardAchievements();
+      await _syncBlockedAppsWithAndroid();
+      await _evaluateDashboardAchievements();
     }
   }
 
@@ -2243,7 +2301,7 @@ class _ChildManagerScreenState extends State<ChildManagerScreen> {
             : ListView.separated(
                 padding: const EdgeInsets.all(20),
                 itemCount: children.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 12),
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (_, index) {
                   final child = children[index];
                   final isActive = child.id == widget.activeChildId;
@@ -2707,6 +2765,10 @@ class _ProtectedAppsTestScreenState extends State<ProtectedAppsTestScreen> {
   @override
   Widget build(BuildContext context) {
     final cleanedSessions = unlockSessions.where((e) => e.isActive).toList();
+    final blockedApps = List<String>.from(widget.blockedApps);
+
+    debugPrint('ProtectedAppsTestScreen blockedApps: $blockedApps');
+    debugPrint('ProtectedAppsTestScreen sessions: ${cleanedSessions.length}');
 
     return Scaffold(
       appBar: AppBar(
@@ -2720,65 +2782,117 @@ class _ProtectedAppsTestScreenState extends State<ProtectedAppsTestScreen> {
         ],
       ),
       body: SafeArea(
-        child: ListView(
+        child: Padding(
           padding: const EdgeInsets.all(20),
-          children: [
-            if (!widget.config.isReady)
-              PrettyCard(
-                color: Colors.orange.withOpacity(0.14),
-                child: Text(
-                  '${tr(widget.language, 'androidReadiness')}: ${tr(widget.language, 'notReady')}',
-                ),
-              ),
-            if (!widget.config.isReady) const SizedBox(height: 16),
-            ...widget.blockedApps.map((app) {
-              final unlocked = _isUnlocked(app);
-              final expiry = _getExpiry(app);
+          child: blockedApps.isEmpty
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      tr(widget.language, 'noBlockedApps'),
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(tr(widget.language, 'blockedAppsSubtitle')),
+                    const SizedBox(height: 20),
+                    OutlinedButton(
+                      onPressed: () => Navigator.pop(context, cleanedSessions),
+                      child: Text(tr(widget.language, 'backToPanel')),
+                    ),
+                  ],
+                )
+              : ListView(
+                  children: [
+                    Text(
+                      'Apps protegidas: ${blockedApps.length}',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ...blockedApps.map((app) {
+                      final unlocked = _isUnlocked(app);
+                      final expiry = _getExpiry(app);
 
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: PrettyCard(
-                  child: ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(unlocked ? Icons.lock_open : Icons.lock),
-                    title: Text(appLabel(widget.language, app)),
-                    subtitle: Text(
-                      unlocked && expiry != null
-                          ? '${tr(widget.language, 'unlockedUntil')} ${_formatDate(expiry)}'
-                          : tr(widget.language, 'locked'),
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(unlocked ? Icons.lock_open : Icons.lock),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      appLabel(widget.language, app),
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                unlocked && expiry != null
+                                    ? '${tr(widget.language, 'unlockedUntil')} ${_formatDate(expiry)}'
+                                    : tr(widget.language, 'locked'),
+                              ),
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  onPressed: () => _openApp(app),
+                                  child: Text(
+                                    tr(widget.language, 'openProtectedApp'),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }),
+                    if (cleanedSessions.isNotEmpty) ...[
+                      const SizedBox(height: 20),
+                      Text(
+                        tr(widget.language, 'unlockStatus'),
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ...cleanedSessions.map(
+                        (session) => Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: ListTile(
+                            leading: const Icon(Icons.timer),
+                            title: Text(
+                              appLabel(widget.language, session.appName),
+                            ),
+                            subtitle: Text(
+                              '${tr(widget.language, 'unlockedUntil')} ${_formatDate(session.expiresAt)}',
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                    OutlinedButton(
+                      onPressed: () => Navigator.pop(context, cleanedSessions),
+                      child: Text(tr(widget.language, 'backToPanel')),
                     ),
-                    trailing: ElevatedButton(
-                      onPressed: () => _openApp(app),
-                      child: Text(tr(widget.language, 'openProtectedApp')),
-                    ),
-                  ),
+                  ],
                 ),
-              );
-            }),
-            const SizedBox(height: 18),
-            if (cleanedSessions.isNotEmpty)
-              Text(
-                tr(widget.language, 'unlockStatus'),
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ...cleanedSessions.map(
-              (session) => ListTile(
-                leading: const Icon(Icons.timer),
-                title: Text(appLabel(widget.language, session.appName)),
-                subtitle: Text(
-                  '${tr(widget.language, 'unlockedUntil')} ${_formatDate(session.expiresAt)}',
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            OutlinedButton(
-              onPressed: () => Navigator.pop(context, cleanedSessions),
-              child: Text(tr(widget.language, 'backToPanel')),
-            ),
-          ],
         ),
       ),
     );

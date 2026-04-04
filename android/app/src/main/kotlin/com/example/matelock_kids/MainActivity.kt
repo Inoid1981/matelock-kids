@@ -16,6 +16,7 @@ class MainActivity : FlutterActivity() {
     private val CHANNEL = "matelock_kids/android"
     private val PREFS_NAME = "matelock_native"
     private val BLOCKED_APPS_KEY = "blocked_app_ids"
+    private val UNLOCK_UNTIL_PACKAGE_PREFIX = "unlock_until_pkg_"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -55,6 +56,43 @@ class MainActivity : FlutterActivity() {
                         result.success(true)
                     }
 
+                    "setTemporaryUnlock" -> {
+                        val appId = call.argument<String>("appId")
+                        val unlockUntil = call.argument<Long>("unlockUntil") ?: 0L
+
+                        if (appId.isNullOrBlank()) {
+                            result.success(false)
+                        } else {
+                            val packages = resolvePackagesForAppId(appId)
+                            val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                            val editor = prefs.edit()
+
+                            for (pkg in packages) {
+                                editor.putLong("$UNLOCK_UNTIL_PACKAGE_PREFIX$pkg", unlockUntil)
+                            }
+
+                            result.success(editor.commit())
+                        }
+                    }
+
+                    "clearTemporaryUnlock" -> {
+                        val appId = call.argument<String>("appId")
+
+                        if (appId.isNullOrBlank()) {
+                            result.success(false)
+                        } else {
+                            val packages = resolvePackagesForAppId(appId)
+                            val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                            val editor = prefs.edit()
+
+                            for (pkg in packages) {
+                                editor.remove("$UNLOCK_UNTIL_PACKAGE_PREFIX$pkg")
+                            }
+
+                            result.success(editor.commit())
+                        }
+                    }
+
                     "startMonitorService" -> {
                         val intent = Intent(this, AppMonitorService::class.java)
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -74,6 +112,26 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    private fun resolvePackagesForAppId(appId: String): Set<String> {
+        return when (appId) {
+            "youtube" -> setOf("com.google.android.youtube")
+            "instagram" -> setOf("com.instagram.android")
+            "tiktok" -> setOf("com.zhiliaoapp.musically")
+            "chrome" -> setOf("com.android.chrome")
+            "whatsapp" -> setOf("com.whatsapp")
+            "calculator" -> setOf(
+                "com.google.android.calculator",
+                "com.android.calculator2",
+                "com.miui.calculator",
+                "com.samsung.android.calculator",
+                "com.coloros.calculator"
+            )
+            else -> {
+                if (appId.contains(".")) setOf(appId) else emptySet()
+            }
+        }
     }
 
     private fun hasUsageStatsPermission(): Boolean {
