@@ -368,7 +368,9 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
     if (widget.existingProfile != null) {
       profile = widget.existingProfile!.copyWith(name: name, age: _selectedAge);
       final index = children.indexWhere((c) => c.id == profile.id);
-      if (index != -1) children[index] = profile;
+      if (index != -1) {
+        children[index] = profile;
+      }
     } else {
       profile = ChildProfile(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -712,6 +714,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
   late List<UnlockSession> unlockSessions;
   bool protectionEnabled = false;
   bool _pendingProtectionActivation = false;
+  bool _openingPendingBlockedApp = false;
 
   @override
   void initState() {
@@ -727,6 +730,10 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
       widget.unlockSessions,
     ).where((e) => e.isActive).toList();
     protectionEnabled = androidConfig.foregroundServiceGranted;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkPendingBlockedAppAndOpenGate();
+    });
   }
 
   @override
@@ -742,12 +749,79 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
         _resumeProtectionActivation();
       } else {
         _refreshAndroidPermissionStatus();
+        _checkPendingBlockedAppAndOpenGate();
       }
     }
   }
 
   bool get _isAndroid =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  Future<void> _checkPendingBlockedAppAndOpenGate() async {
+    if (!_isAndroid) return;
+    if (_openingPendingBlockedApp) return;
+    if (!mounted) return;
+
+    try {
+      final pendingApp = await androidChannel.invokeMethod<String>(
+        'consumePendingBlockedApp',
+      );
+
+      if (!mounted) return;
+      if (pendingApp == null || pendingApp.isEmpty) return;
+      if (!blockedApps.contains(pendingApp)) return;
+
+      _openingPendingBlockedApp = true;
+
+      final granted = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ProtectedAppGateScreen(
+            profile: activeChild,
+            appName: pendingApp,
+            config: androidConfig,
+            language: widget.language,
+            onLanguageChanged: widget.onLanguageChanged,
+            tempStats: AppStats(difficultyLevel: 1),
+          ),
+        ),
+      );
+
+      if (granted == true) {
+        final expiresAt = DateTime.now().add(
+          Duration(minutes: androidConfig.unlockMinutes),
+        );
+
+        try {
+          await androidChannel.invokeMethod('setTemporaryUnlock', {
+            'appId': pendingApp,
+            'unlockUntil': expiresAt.millisecondsSinceEpoch,
+          });
+        } catch (e) {
+          debugPrint(
+            'Error guardando desbloqueo temporal desde bloqueo real: $e',
+          );
+        }
+
+        unlockSessions.removeWhere((e) => e.appName == pendingApp);
+        unlockSessions.add(
+          UnlockSession(appName: pendingApp, expiresAt: expiresAt),
+        );
+
+        await LocalStorageService.saveUnlockSessions(
+          activeChild.id,
+          unlockSessions,
+        );
+
+        if (!mounted) return;
+        setState(() {});
+      }
+    } catch (e) {
+      debugPrint('Error leyendo app bloqueada pendiente: $e');
+    } finally {
+      _openingPendingBlockedApp = false;
+    }
+  }
 
   Future<void> _syncBlockedAppsWithAndroid() async {
     if (!_isAndroid) return;
@@ -1220,7 +1294,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
       _addAchievement('apps_3');
     }
     await LocalStorageService.saveStats(activeChild.id, stats);
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   Widget _buildProgressBar() {
@@ -1277,12 +1353,12 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
       ),
       _StatCard(
         title: tr(widget.language, 'stars'),
-        value: '? ${stats.stars}',
+        value: '★ ${stats.stars}',
         icon: Icons.star_outline,
       ),
       _StatCard(
         title: tr(widget.language, 'bestStreak'),
-        value: '?? ${stats.bestStreak}',
+        value: 'Racha ${stats.bestStreak}',
         icon: Icons.local_fire_department_outlined,
       ),
       _StatCard(
@@ -1636,43 +1712,37 @@ class _MathChallengeScreenState extends State<MathChallengeScreen> {
     if (widget.stats.stars >= 10 &&
         !widget.stats.unlockedAvatars.contains('robot')) {
       widget.stats.unlockedAvatars.add('robot');
-      rewardMessage =
-          '?? ${tr(widget.language, 'rewardChest')}: ${tr(widget.language, 'robotAvatar')}';
+      rewardMessage = 'Recompensa: ${tr(widget.language, 'robotAvatar')}';
     }
 
     if (widget.stats.stars >= 20 &&
         !widget.stats.unlockedAvatars.contains('ninja')) {
       widget.stats.unlockedAvatars.add('ninja');
-      rewardMessage =
-          '?? ${tr(widget.language, 'rewardChest')}: ${tr(widget.language, 'ninjaAvatar')}';
+      rewardMessage = 'Recompensa: ${tr(widget.language, 'ninjaAvatar')}';
     }
 
     if (widget.stats.stars >= 35 &&
         !widget.stats.unlockedAvatars.contains('astronaut')) {
       widget.stats.unlockedAvatars.add('astronaut');
-      rewardMessage =
-          '?? ${tr(widget.language, 'rewardChest')}: ${tr(widget.language, 'astronautAvatar')}';
+      rewardMessage = 'Recompensa: ${tr(widget.language, 'astronautAvatar')}';
     }
 
     if (widget.stats.stars >= 50 &&
         !widget.stats.unlockedAvatars.contains('fox')) {
       widget.stats.unlockedAvatars.add('fox');
-      rewardMessage =
-          '?? ${tr(widget.language, 'rewardChest')}: ${tr(widget.language, 'foxAvatar')}';
+      rewardMessage = 'Recompensa: ${tr(widget.language, 'foxAvatar')}';
     }
 
     if (widget.stats.stars >= 75 &&
         !widget.stats.unlockedAvatars.contains('cat')) {
       widget.stats.unlockedAvatars.add('cat');
-      rewardMessage =
-          '?? ${tr(widget.language, 'rewardChest')}: ${tr(widget.language, 'catAvatar')}';
+      rewardMessage = 'Recompensa: ${tr(widget.language, 'catAvatar')}';
     }
 
     void addAchievement(String id) {
       if (!widget.stats.achievements.contains(id)) {
         widget.stats.achievements.add(id);
-        rewardMessage =
-            '?? ${tr(widget.language, 'achievementUnlocked')}: ${achievementLabel(widget.language, id)}';
+        rewardMessage = 'Logro: ${achievementLabel(widget.language, id)}';
       }
     }
 
@@ -1903,7 +1973,7 @@ class _MathChallengeScreenState extends State<MathChallengeScreen> {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          '? ${widget.stats.stars}   ?? ${widget.stats.streak}',
+                          '★ ${widget.stats.stars}   Racha ${widget.stats.streak}',
                           style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w800,
@@ -2790,12 +2860,6 @@ class _ProtectedAppsTestScreenState extends State<ProtectedAppsTestScreen> {
         debugPrint('Paquete nativo: $debugPackage');
         debugPrint('unlockUntil guardado en Android: $nativeUnlockUntil');
         debugPrint('unlockUntil esperado: ${expiresAt.millisecondsSinceEpoch}');
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Nativo guardado: $nativeUnlockUntil')),
-          );
-        }
       } catch (e) {
         debugPrint('Error guardando desbloqueo temporal nativo: $e');
       }
@@ -2812,9 +2876,6 @@ class _ProtectedAppsTestScreenState extends State<ProtectedAppsTestScreen> {
   Widget build(BuildContext context) {
     final cleanedSessions = unlockSessions.where((e) => e.isActive).toList();
     final blockedApps = List<String>.from(widget.blockedApps);
-
-    debugPrint('ProtectedAppsTestScreen blockedApps: $blockedApps');
-    debugPrint('ProtectedAppsTestScreen sessions: ${cleanedSessions.length}');
 
     return Scaffold(
       appBar: AppBar(

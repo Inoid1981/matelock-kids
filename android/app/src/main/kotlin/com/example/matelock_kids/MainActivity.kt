@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.Process
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
@@ -17,6 +18,18 @@ class MainActivity : FlutterActivity() {
     private val PREFS_NAME = "matelock_native"
     private val BLOCKED_APPS_KEY = "blocked_app_ids"
     private val UNLOCK_UNTIL_PACKAGE_PREFIX = "unlock_until_pkg_"
+    private val PENDING_BLOCKED_APP_KEY = "pending_blocked_app"
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        savePendingBlockedAppFromIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        savePendingBlockedAppFromIntent(intent)
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -108,6 +121,19 @@ class MainActivity : FlutterActivity() {
                         }
                     }
 
+                    "consumePendingBlockedApp" -> {
+                        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                        val value = prefs.getString(PENDING_BLOCKED_APP_KEY, null)
+                        prefs.edit().remove(PENDING_BLOCKED_APP_KEY).apply()
+                        result.success(value)
+                    }
+
+                    "clearPendingBlockedApp" -> {
+                        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                        prefs.edit().remove(PENDING_BLOCKED_APP_KEY).apply()
+                        result.success(true)
+                    }
+
                     "startMonitorService" -> {
                         val intent = Intent(this, AppMonitorService::class.java)
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -127,6 +153,14 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    private fun savePendingBlockedAppFromIntent(intent: Intent?) {
+        val blockedAppId = intent?.getStringExtra("blocked_app_id")
+        if (blockedAppId.isNullOrBlank()) return
+
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putString(PENDING_BLOCKED_APP_KEY, blockedAppId).apply()
     }
 
     private fun resolvePackagesForAppId(appId: String): Set<String> {

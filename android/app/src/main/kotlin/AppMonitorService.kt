@@ -136,8 +136,8 @@ class AppMonitorService : Service() {
         val currentPackageName = recentApp.packageName
 
         if (currentPackageName == this.packageName) return
-        if (!blockedPackageMap.containsKey(currentPackageName)) return
 
+        val appId = blockedPackageMap[currentPackageName] ?: return
         val now = System.currentTimeMillis()
         val unlockUntil = getUnlockUntilForPackage(currentPackageName)
 
@@ -154,6 +154,7 @@ class AppMonitorService : Service() {
             lastLaunchTime = now
 
             val intent = Intent(this, MainActivity::class.java)
+            intent.putExtra("blocked_app_id", appId)
             intent.addFlags(
                 Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_SINGLE_TOP or
