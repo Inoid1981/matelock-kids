@@ -75,6 +75,21 @@ class MainActivity : FlutterActivity() {
                         }
                     }
 
+                    "getTemporaryUnlockForPackage" -> {
+                        val packageName = call.argument<String>("packageName")
+
+                        if (packageName.isNullOrBlank()) {
+                            result.success(0L)
+                        } else {
+                            val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                            val value = prefs.getLong(
+                                "$UNLOCK_UNTIL_PACKAGE_PREFIX$packageName",
+                                0L
+                            )
+                            result.success(value)
+                        }
+                    }
+
                     "clearTemporaryUnlock" -> {
                         val appId = call.argument<String>("appId")
 

@@ -2704,6 +2704,25 @@ class _ProtectedAppsTestScreenState extends State<ProtectedAppsTestScreen> {
     unlockSessions = widget.unlockSessions.where((e) => e.isActive).toList();
   }
 
+  String _debugPackageForApp(String appId) {
+    switch (appId) {
+      case 'youtube':
+        return 'com.google.android.youtube';
+      case 'calculator':
+        return 'com.miui.calculator';
+      case 'chrome':
+        return 'com.android.chrome';
+      case 'whatsapp':
+        return 'com.whatsapp';
+      case 'instagram':
+        return 'com.instagram.android';
+      case 'tiktok':
+        return 'com.zhiliaoapp.musically';
+      default:
+        return appId;
+    }
+  }
+
   bool _isUnlocked(String appName) {
     return unlockSessions.any((s) => s.appName == appName && s.isActive);
   }
@@ -2755,8 +2774,35 @@ class _ProtectedAppsTestScreenState extends State<ProtectedAppsTestScreen> {
       final expiresAt = DateTime.now().add(
         Duration(minutes: widget.config.unlockMinutes),
       );
+
+      try {
+        await androidChannel.invokeMethod('setTemporaryUnlock', {
+          'appId': appName,
+          'unlockUntil': expiresAt.millisecondsSinceEpoch,
+        });
+
+        final debugPackage = _debugPackageForApp(appName);
+        final nativeUnlockUntil = await androidChannel.invokeMethod<int>(
+          'getTemporaryUnlockForPackage',
+          {'packageName': debugPackage},
+        );
+
+        debugPrint('Paquete nativo: $debugPackage');
+        debugPrint('unlockUntil guardado en Android: $nativeUnlockUntil');
+        debugPrint('unlockUntil esperado: ${expiresAt.millisecondsSinceEpoch}');
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Nativo guardado: $nativeUnlockUntil')),
+          );
+        }
+      } catch (e) {
+        debugPrint('Error guardando desbloqueo temporal nativo: $e');
+      }
+
       unlockSessions.removeWhere((e) => e.appName == appName);
       unlockSessions.add(UnlockSession(appName: appName, expiresAt: expiresAt));
+
       if (!mounted) return;
       setState(() {});
     }
