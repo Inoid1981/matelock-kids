@@ -134,6 +134,15 @@ class MainActivity : FlutterActivity() {
                         result.success(true)
                     }
 
+                    "openAppById" -> {
+                        val appId = call.argument<String>("appId")
+                        if (appId.isNullOrBlank()) {
+                            result.success(false)
+                        } else {
+                            result.success(openAppById(appId))
+                        }
+                    }
+
                     "startMonitorService" -> {
                         val intent = Intent(this, AppMonitorService::class.java)
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -162,6 +171,28 @@ class MainActivity : FlutterActivity() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().putString(PENDING_BLOCKED_APP_KEY, blockedAppId).apply()
     }
+
+    private fun openAppById(appId: String): Boolean {
+    val packages = resolvePackagesForAppId(appId)
+
+    for (pkg in packages) {
+        try {
+            val launchIntent = packageManager.getLaunchIntentForPackage(pkg)
+            if (launchIntent != null) {
+                launchIntent.addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
+                )
+                startActivity(launchIntent)
+                return true
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    return false
+}
 
     private fun resolvePackagesForAppId(appId: String): Set<String> {
         return when (appId) {

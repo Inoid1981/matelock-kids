@@ -813,6 +813,20 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
           unlockSessions,
         );
 
+        try {
+          await Future.delayed(const Duration(milliseconds: 300));
+
+          final opened =
+              await androidChannel.invokeMethod<bool>('openAppById', {
+                'appId': pendingApp,
+              }) ??
+              false;
+
+          debugPrint('openAppById bloqueo real: $opened');
+        } catch (e) {
+          debugPrint('Error abriendo app real: $e');
+        }
+
         if (!mounted) return;
         setState(() {});
       }
@@ -2866,6 +2880,20 @@ class _ProtectedAppsTestScreenState extends State<ProtectedAppsTestScreen> {
 
       unlockSessions.removeWhere((e) => e.appName == appName);
       unlockSessions.add(UnlockSession(appName: appName, expiresAt: expiresAt));
+
+      try {
+        await Future.delayed(const Duration(milliseconds: 300));
+
+        final opened =
+            await androidChannel.invokeMethod<bool>('openAppById', {
+              'appId': appName,
+            }) ??
+            false;
+
+        debugPrint('openAppById test: $opened');
+      } catch (e) {
+        debugPrint('Error abriendo app real desde test: $e');
+      }
 
       if (!mounted) return;
       setState(() {});
