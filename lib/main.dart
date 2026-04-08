@@ -822,7 +822,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
               }) ??
               false;
 
-          debugPrint('openAppById bloqueo real: $opened');
+          //debugPrint('openAppById bloqueo real: $opened');
         } catch (e) {
           debugPrint('Error abriendo app real: $e');
         }
@@ -2871,9 +2871,9 @@ class _ProtectedAppsTestScreenState extends State<ProtectedAppsTestScreen> {
           {'packageName': debugPackage},
         );
 
-        debugPrint('Paquete nativo: $debugPackage');
-        debugPrint('unlockUntil guardado en Android: $nativeUnlockUntil');
-        debugPrint('unlockUntil esperado: ${expiresAt.millisecondsSinceEpoch}');
+        //debugPrint('Paquete nativo: $debugPackage');
+        //debugPrint('unlockUntil guardado en Android: $nativeUnlockUntil');
+        //debugPrint('unlockUntil esperado: ${expiresAt.millisecondsSinceEpoch}');
       } catch (e) {
         debugPrint('Error guardando desbloqueo temporal nativo: $e');
       }
@@ -2890,7 +2890,7 @@ class _ProtectedAppsTestScreenState extends State<ProtectedAppsTestScreen> {
             }) ??
             false;
 
-        debugPrint('openAppById test: $opened');
+        // debugPrint('openAppById test: $opened');
       } catch (e) {
         debugPrint('Error abriendo app real desde test: $e');
       }
@@ -3082,6 +3082,7 @@ class _ProtectedAppGateScreenState extends State<ProtectedAppGateScreen> {
       final max = 10 + (widget.tempStats.difficultyLevel * 2);
       a = _random.nextInt(max) + 1;
       b = _random.nextInt(max) + 1;
+
       if (isSum) {
         operatorSymbol = '+';
         result = a + b;
@@ -3168,18 +3169,28 @@ class _ProtectedAppGateScreenState extends State<ProtectedAppGateScreen> {
     setState(() {});
   }
 
-  void _checkAnswer() {
+  Future<void> _checkAnswer() async {
     if (answered) return;
 
     final value = int.tryParse(_controller.text.trim());
+    if (value == null) return;
+
     if (value == result) {
+      HapticFeedback.lightImpact();
       setState(() {
         isCorrect = true;
         answered = true;
         message = tr(widget.language, 'veryGood');
       });
+
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (!mounted) return;
+      Navigator.pop(context, true);
     } else {
+      _controller.clear();
+
       setState(() {
+        HapticFeedback.heavyImpact();
         isCorrect = false;
         message = tr(widget.language, 'tryAgain');
       });
@@ -3188,11 +3199,13 @@ class _ProtectedAppGateScreenState extends State<ProtectedAppGateScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final appNameLabel = appLabel(widget.language, widget.appName);
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          '${tr(widget.language, 'protectedArea')} · ${appLabel(widget.language, widget.appName)}',
-        ),
+        automaticallyImplyLeading: false,
+        title: Text(appNameLabel),
+        centerTitle: true,
       ),
       body: SafeArea(
         child: Center(
@@ -3206,17 +3219,36 @@ class _ProtectedAppGateScreenState extends State<ProtectedAppGateScreen> {
                     color: const Color(0xFFEAEFFF),
                     child: Column(
                       children: [
-                        const Icon(Icons.shield, size: 68),
-                        const SizedBox(height: 14),
-                        Text(
-                          tr(widget.language, 'thisAppWouldBeBlocked'),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        Container(
+                          width: 92,
+                          height: 92,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.06),
+                                blurRadius: 16,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          child: Icon(appIcon(widget.appName), size: 42),
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 16),
+                        Text(
+                          appNameLabel,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
                         Text(
                           tr(widget.language, 'requireMathBeforeOpen'),
                           textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 16),
                         ),
                       ],
                     ),
@@ -3226,16 +3258,39 @@ class _ProtectedAppGateScreenState extends State<ProtectedAppGateScreen> {
                     child: Column(
                       children: [
                         Text(
-                          '$a $operatorSymbol $b = ?',
+                          tr(widget.language, 'solveToUnlock'),
+                          textAlign: TextAlign.center,
                           style: const TextStyle(
-                            fontSize: 48,
-                            fontWeight: FontWeight.w900,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 24,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.indigo.withOpacity(0.06),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            '$a $operatorSymbol $b = ?',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 46,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 20),
                         TextField(
                           controller: _controller,
                           keyboardType: TextInputType.number,
+                          textInputAction: TextInputAction.done,
+                          autofocus: true,
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             fontSize: 30,
@@ -3244,36 +3299,57 @@ class _ProtectedAppGateScreenState extends State<ProtectedAppGateScreen> {
                           decoration: InputDecoration(
                             hintText: tr(widget.language, 'answer'),
                           ),
+                          onChanged: (_) => setState(() {}),
                           onSubmitted: (_) => answered ? null : _checkAnswer(),
                         ),
                         const SizedBox(height: 16),
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
-                            onPressed: answered ? null : _checkAnswer,
-                            child: Text(tr(widget.language, 'check')),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        if (message.isNotEmpty)
-                          Text(
-                            message,
-                            style: TextStyle(
-                              color: isCorrect ? Colors.green : Colors.red,
-                              fontWeight: FontWeight.w700,
+                            onPressed:
+                                answered || _controller.text.trim().isEmpty
+                                ? null
+                                : _checkAnswer,
+                            child: Text(
+                              tr(widget.language, 'check'),
+                              style: const TextStyle(fontSize: 18),
                             ),
                           ),
-                        const SizedBox(height: 18),
-                        if (isCorrect)
-                          FilledButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            child: Text(tr(widget.language, 'unlockNow')),
+                        ),
+                        if (message.isNotEmpty) ...[
+                          const SizedBox(height: 14),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isCorrect
+                                  ? Colors.green.withOpacity(0.10)
+                                  : Colors.red.withOpacity(0.10),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Text(
+                              message,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: isCorrect ? Colors.green : Colors.red,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ),
+                        ],
                         if (!isCorrect) ...[
-                          const SizedBox(height: 8),
-                          OutlinedButton(
-                            onPressed: _generateQuestion,
-                            child: Text(tr(widget.language, 'nextOperation')),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: _generateQuestion,
+                              icon: const Icon(Icons.refresh),
+                              label: Text(tr(widget.language, 'nextOperation')),
+                            ),
                           ),
                         ],
                       ],
