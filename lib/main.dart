@@ -114,7 +114,7 @@ class _StartupScreenState extends State<StartupScreen> {
   ChildProfile? activeChild;
   AppStats stats = AppStats();
   List<String> blockedApps = <String>[];
-  String parentPin = '1234';
+  String parentPin = '';
   AndroidConfig androidConfig = AndroidConfig();
   List<UnlockSession> unlockSessions = [];
   bool setupDone = false;
@@ -175,7 +175,7 @@ class _StartupScreenState extends State<StartupScreen> {
       activeChild = selectedChild;
       stats = loadedStats;
       blockedApps = loadedBlockedApps;
-      parentPin = loadedPin;
+      parentPin = loadedPin ?? '';
       androidConfig = loadedAndroidConfig;
       unlockSessions = loadedSessions;
       setupDone = loadedSetupDone;
@@ -196,6 +196,13 @@ class _StartupScreenState extends State<StartupScreen> {
       );
     }
 
+    if (parentPin.isEmpty || parentPin == '1234') {
+      return CreateParentPinScreen(
+        language: widget.language,
+        onLanguageChanged: widget.onLanguageChanged,
+      );
+    }
+
     if (!setupDone) {
       return InitialSetupScreen(
         childId: activeChild!.id,
@@ -204,7 +211,7 @@ class _StartupScreenState extends State<StartupScreen> {
       );
     }
 
-    return ParentDashboardScreen(
+    return ParentPinGateScreen(
       children: children,
       activeChild: activeChild!,
       stats: stats,
@@ -325,6 +332,530 @@ class ParentLoginScreen extends StatelessWidget {
   }
 }
 
+class CreateParentPinScreen extends StatefulWidget {
+  final AppLanguage language;
+  final ValueChanged<AppLanguage> onLanguageChanged;
+
+  const CreateParentPinScreen({
+    super.key,
+    required this.language,
+    required this.onLanguageChanged,
+  });
+
+  @override
+  State<CreateParentPinScreen> createState() => _CreateParentPinScreenState();
+}
+
+class _CreateParentPinScreenState extends State<CreateParentPinScreen> {
+  final TextEditingController _pinController = TextEditingController();
+  final TextEditingController _confirmPinController = TextEditingController();
+
+  String? _errorText;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _pinController.dispose();
+    _confirmPinController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _savePin() async {
+    final pin = _pinController.text.trim();
+    final confirmPin = _confirmPinController.text.trim();
+
+    if (pin.length != 4) {
+      setState(() {
+        _errorText = widget.language == AppLanguage.spanish
+            ? 'El PIN debe tener 4 números'
+            : 'PIN must have 4 digits';
+      });
+      return;
+    }
+
+    if (pin != confirmPin) {
+      setState(() {
+        _errorText = widget.language == AppLanguage.spanish
+            ? 'Los PIN no coinciden'
+            : 'PINs do not match';
+      });
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+      _errorText = null;
+    });
+
+    await LocalStorageService.saveParentPin(pin);
+
+    if (!mounted) return;
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StartupScreen(
+          language: widget.language,
+          onLanguageChanged: widget.onLanguageChanged,
+        ),
+      ),
+      (route) => false,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isSpanish = widget.language == AppLanguage.spanish;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(isSpanish ? 'Crear PIN parental' : 'Create parent PIN'),
+        actions: [
+          LanguageSwitcher(
+            language: widget.language,
+            onChanged: widget.onLanguageChanged,
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 430),
+              child: PrettyCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isSpanish
+                          ? 'Crea un PIN de 4 números para entrar al panel de padres'
+                          : 'Create a 4-digit PIN to enter the parents panel',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    TextField(
+                      controller: _pinController,
+                      keyboardType: TextInputType.number,
+                      obscureText: true,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(4),
+                      ],
+                      decoration: InputDecoration(
+                        labelText: isSpanish ? 'Nuevo PIN' : 'New PIN',
+                        prefixIcon: const Icon(Icons.pin_outlined),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: _confirmPinController,
+                      keyboardType: TextInputType.number,
+                      obscureText: true,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(4),
+                      ],
+                      decoration: InputDecoration(
+                        labelText: isSpanish ? 'Confirmar PIN' : 'Confirm PIN',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                      ),
+                    ),
+                    if (_errorText != null) ...[
+                      const SizedBox(height: 14),
+                      Text(
+                        _errorText!,
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _saving ? null : _savePin,
+                        child: Text(
+                          _saving
+                              ? tr(widget.language, 'saving')
+                              : tr(widget.language, 'save'),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ChangeParentPinScreen extends StatefulWidget {
+  final String currentPin;
+  final AppLanguage language;
+  final ValueChanged<AppLanguage> onLanguageChanged;
+
+  const ChangeParentPinScreen({
+    super.key,
+    required this.currentPin,
+    required this.language,
+    required this.onLanguageChanged,
+  });
+
+  @override
+  State<ChangeParentPinScreen> createState() => _ChangeParentPinScreenState();
+}
+
+class _ChangeParentPinScreenState extends State<ChangeParentPinScreen> {
+  final TextEditingController _currentPinController = TextEditingController();
+  final TextEditingController _newPinController = TextEditingController();
+  final TextEditingController _confirmPinController = TextEditingController();
+
+  String? _errorText;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _currentPinController.dispose();
+    _newPinController.dispose();
+    _confirmPinController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveNewPin() async {
+    final currentPin = _currentPinController.text.trim();
+    final newPin = _newPinController.text.trim();
+    final confirmPin = _confirmPinController.text.trim();
+
+    if (currentPin != widget.currentPin) {
+      setState(() {
+        _errorText = widget.language == AppLanguage.spanish
+            ? 'El PIN actual no es correcto'
+            : 'Current PIN is incorrect';
+      });
+      return;
+    }
+
+    if (newPin.length != 4) {
+      setState(() {
+        _errorText = widget.language == AppLanguage.spanish
+            ? 'El nuevo PIN debe tener 4 números'
+            : 'New PIN must have 4 digits';
+      });
+      return;
+    }
+
+    if (newPin != confirmPin) {
+      setState(() {
+        _errorText = widget.language == AppLanguage.spanish
+            ? 'Los PIN no coinciden'
+            : 'PINs do not match';
+      });
+      return;
+    }
+
+    if (newPin == widget.currentPin) {
+      setState(() {
+        _errorText = widget.language == AppLanguage.spanish
+            ? 'El nuevo PIN no puede ser igual al anterior'
+            : 'New PIN cannot be the same as the previous one';
+      });
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+      _errorText = null;
+    });
+
+    await LocalStorageService.saveParentPin(newPin);
+
+    if (!mounted) return;
+
+    Navigator.pop(context, newPin);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isSpanish = widget.language == AppLanguage.spanish;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(isSpanish ? 'Cambiar PIN parental' : 'Change parent PIN'),
+        actions: [
+          LanguageSwitcher(
+            language: widget.language,
+            onChanged: widget.onLanguageChanged,
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 430),
+              child: PrettyCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isSpanish
+                          ? 'Actualiza tu PIN parental'
+                          : 'Update your parent PIN',
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      isSpanish
+                          ? 'Introduce el PIN actual y después el nuevo PIN'
+                          : 'Enter your current PIN and then the new PIN',
+                    ),
+                    const SizedBox(height: 22),
+                    TextField(
+                      controller: _currentPinController,
+                      keyboardType: TextInputType.number,
+                      obscureText: true,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(4),
+                      ],
+                      decoration: InputDecoration(
+                        labelText: isSpanish ? 'PIN actual' : 'Current PIN',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: _newPinController,
+                      keyboardType: TextInputType.number,
+                      obscureText: true,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(4),
+                      ],
+                      decoration: InputDecoration(
+                        labelText: isSpanish ? 'Nuevo PIN' : 'New PIN',
+                        prefixIcon: const Icon(Icons.pin_outlined),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: _confirmPinController,
+                      keyboardType: TextInputType.number,
+                      obscureText: true,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(4),
+                      ],
+                      decoration: InputDecoration(
+                        labelText: isSpanish
+                            ? 'Confirmar nuevo PIN'
+                            : 'Confirm new PIN',
+                        prefixIcon: const Icon(Icons.verified_user_outlined),
+                      ),
+                    ),
+                    if (_errorText != null) ...[
+                      const SizedBox(height: 14),
+                      Text(
+                        _errorText!,
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _saving ? null : _saveNewPin,
+                        child: Text(
+                          _saving
+                              ? tr(widget.language, 'saving')
+                              : (isSpanish
+                                    ? 'Guardar nuevo PIN'
+                                    : 'Save new PIN'),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class InternalPinCheckScreen extends StatefulWidget {
+  final String parentPin;
+  final AppLanguage language;
+  final ValueChanged<AppLanguage> onLanguageChanged;
+
+  const InternalPinCheckScreen({
+    super.key,
+    required this.parentPin,
+    required this.language,
+    required this.onLanguageChanged,
+  });
+
+  @override
+  State<InternalPinCheckScreen> createState() => _InternalPinCheckScreenState();
+}
+
+class _InternalPinCheckScreenState extends State<InternalPinCheckScreen> {
+  final TextEditingController _pinController = TextEditingController();
+  String? _errorText;
+
+  @override
+  void dispose() {
+    _pinController.dispose();
+    super.dispose();
+  }
+
+  void _confirm() {
+    final pin = _pinController.text.trim();
+
+    if (pin == widget.parentPin) {
+      Navigator.pop(context, true);
+      return;
+    }
+
+    setState(() {
+      _errorText = widget.language == AppLanguage.spanish
+          ? 'PIN incorrecto. Inténtalo de nuevo.'
+          : 'Incorrect PIN. Please try again.';
+    });
+
+    _pinController.clear();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isSpanish = widget.language == AppLanguage.spanish;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          isSpanish ? 'Verificación parental' : 'Parent verification',
+        ),
+        actions: [
+          LanguageSwitcher(
+            language: widget.language,
+            onChanged: widget.onLanguageChanged,
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 430),
+              child: PrettyCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isSpanish
+                          ? 'Introduce tu PIN para continuar'
+                          : 'Enter your PIN to continue',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    TextField(
+                      controller: _pinController,
+                      keyboardType: TextInputType.number,
+                      obscureText: true,
+                      onChanged: (_) {
+                        if (_errorText != null) {
+                          setState(() {
+                            _errorText = null;
+                          });
+                        }
+                      },
+                      onSubmitted: (_) => _confirm(),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(4),
+                      ],
+                      decoration: InputDecoration(
+                        labelText: isSpanish ? 'PIN parental' : 'Parent PIN',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                      ),
+                    ),
+                    if (_errorText != null) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFE5E5),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFE57373)),
+                        ),
+                        child: Text(
+                          _errorText!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Color(0xFFB71C1C),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: Text(isSpanish ? 'Cancelar' : 'Cancel'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: _confirm,
+                            child: Text(isSpanish ? 'Confirmar' : 'Confirm'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class ChildProfileScreen extends StatefulWidget {
   final AppLanguage language;
   final ValueChanged<AppLanguage> onLanguageChanged;
@@ -368,9 +899,7 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
     if (widget.existingProfile != null) {
       profile = widget.existingProfile!.copyWith(name: name, age: _selectedAge);
       final index = children.indexWhere((c) => c.id == profile.id);
-      if (index != -1) {
-        children[index] = profile;
-      }
+      if (index != -1) children[index] = profile;
     } else {
       profile = ChildProfile(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -388,15 +917,18 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
 
     await LocalStorageService.saveChildren(children);
     await LocalStorageService.saveActiveChildId(profile.id);
-    await LocalStorageService.saveParentPin('1234');
 
     if (!mounted) return;
+
+    if (widget.existingProfile != null) {
+      Navigator.pop(context);
+      return;
+    }
 
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) => InitialSetupScreen(
-          childId: profile.id,
+        builder: (_) => CreateParentPinScreen(
           language: widget.language,
           onLanguageChanged: widget.onLanguageChanged,
         ),
@@ -666,6 +1198,177 @@ class InitialSetupScreen extends StatelessWidget {
                     child: Text(tr(language, 'continueWithoutIt')),
                   ),
                 ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ParentPinGateScreen extends StatefulWidget {
+  final List<ChildProfile> children;
+  final ChildProfile activeChild;
+  final AppStats stats;
+  final List<String> blockedApps;
+  final String parentPin;
+  final AndroidConfig androidConfig;
+  final List<UnlockSession> unlockSessions;
+  final AppLanguage language;
+  final ValueChanged<AppLanguage> onLanguageChanged;
+
+  const ParentPinGateScreen({
+    super.key,
+    required this.children,
+    required this.activeChild,
+    required this.stats,
+    required this.blockedApps,
+    required this.parentPin,
+    required this.androidConfig,
+    required this.unlockSessions,
+    required this.language,
+    required this.onLanguageChanged,
+  });
+
+  @override
+  State<ParentPinGateScreen> createState() => _ParentPinGateScreenState();
+}
+
+class _ParentPinGateScreenState extends State<ParentPinGateScreen> {
+  final TextEditingController _pinController = TextEditingController();
+  String? _errorText;
+  bool _unlocked = false;
+
+  @override
+  void dispose() {
+    _pinController.dispose();
+    super.dispose();
+  }
+
+  void _continue() {
+    final pin = _pinController.text.trim();
+
+    if (pin == widget.parentPin) {
+      setState(() {
+        _unlocked = true;
+        _errorText = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _errorText = widget.language == AppLanguage.spanish
+          ? 'PIN incorrecto. Inténtalo de nuevo.'
+          : 'Incorrect PIN. Please try again.';
+    });
+
+    _pinController.clear();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isSpanish = widget.language == AppLanguage.spanish;
+    if (_unlocked) {
+      return ParentDashboardScreen(
+        children: widget.children,
+        activeChild: widget.activeChild,
+        stats: widget.stats,
+        blockedApps: widget.blockedApps,
+        parentPin: widget.parentPin,
+        androidConfig: widget.androidConfig,
+        unlockSessions: widget.unlockSessions,
+        language: widget.language,
+        onLanguageChanged: widget.onLanguageChanged,
+      );
+    }
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(isSpanish ? 'Acceso parental' : 'Parent access'),
+        actions: [
+          LanguageSwitcher(
+            language: widget.language,
+            onChanged: widget.onLanguageChanged,
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 430),
+              child: PrettyCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isSpanish
+                          ? 'Introduce tu PIN para entrar al panel de padres'
+                          : 'Enter your PIN to access the parents panel',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    TextField(
+                      controller: _pinController,
+                      keyboardType: TextInputType.number,
+                      obscureText: true,
+
+                      onChanged: (_) {
+                        if (_errorText != null) {
+                          setState(() {
+                            _errorText = null;
+                          });
+                        }
+                      },
+                      onSubmitted: (_) => _continue(),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(4),
+                      ],
+                      decoration: InputDecoration(
+                        labelText: isSpanish ? 'PIN parental' : 'Parent PIN',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                      ),
+                    ),
+                    if (_errorText != null) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFE5E5),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFE57373)),
+                        ),
+                        child: Text(
+                          _errorText!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Color(0xFFB71C1C),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _continue,
+                        child: Text(isSpanish ? 'Entrar' : 'Enter'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1030,58 +1733,18 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
   }
 
   Future<bool> _askForPin() async {
-    final controller = TextEditingController();
-    bool success = false;
-
-    await showDialog(
-      context: context,
-      builder: (_) {
-        return AlertDialog(
-          title: Text(tr(widget.language, 'parentPin')),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(tr(widget.language, 'enterPin')),
-              const SizedBox(height: 12),
-              TextField(
-                controller: controller,
-                keyboardType: TextInputType.number,
-                obscureText: true,
-                autofocus: true,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(tr(widget.language, 'cancel')),
-            ),
-            FilledButton(
-              onPressed: () {
-                if (controller.text == parentPin) {
-                  success = true;
-                  Navigator.pop(context);
-                } else {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(tr(widget.language, 'wrongPin'))),
-                  );
-                }
-              },
-              child: Text(tr(widget.language, 'confirm')),
-            ),
-          ],
-        );
-      },
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => InternalPinCheckScreen(
+          parentPin: parentPin,
+          language: widget.language,
+          onLanguageChanged: widget.onLanguageChanged,
+        ),
+      ),
     );
 
-    if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(tr(widget.language, 'accessAllowed'))),
-      );
-    }
-
-    return success;
+    return result ?? false;
   }
 
   Future<void> _openBlockedApps() async {
@@ -1300,6 +1963,35 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
   void _addAchievement(String id) {
     if (!stats.achievements.contains(id)) {
       stats.achievements.add(id);
+    }
+  }
+
+  Future<void> _openChangePinScreen() async {
+    final updatedPin = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChangeParentPinScreen(
+          currentPin: parentPin,
+          language: widget.language,
+          onLanguageChanged: widget.onLanguageChanged,
+        ),
+      ),
+    );
+
+    if (updatedPin != null && mounted) {
+      setState(() {
+        parentPin = updatedPin;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            widget.language == AppLanguage.spanish
+                ? 'PIN parental actualizado'
+                : 'Parent PIN updated',
+          ),
+        ),
+      );
     }
   }
 
@@ -1626,13 +2318,25 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
+              onPressed: _openChangePinScreen,
+              icon: const Icon(Icons.password),
+              label: Text(
+                widget.language == AppLanguage.spanish
+                    ? 'Cambiar PIN parental'
+                    : 'Change parent PIN',
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
               onPressed: _openProtectedAppsTester,
               icon: const Icon(Icons.lock_open),
               label: Text(tr(widget.language, 'testProtectedApps')),
             ),
             const SizedBox(height: 12),
             Text(
-              tr(widget.language, 'pinHint'),
+              widget.language == AppLanguage.spanish
+                  ? 'PIN parental configurado'
+                  : 'Parent PIN configured',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],

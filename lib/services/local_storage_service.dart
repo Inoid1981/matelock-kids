@@ -73,7 +73,9 @@ class LocalStorageService {
   }
 
   static Future<void> saveAndroidConfig(
-      String childId, AndroidConfig config) async {
+    String childId,
+    AndroidConfig config,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       '$androidConfigPrefix$childId',
@@ -94,7 +96,9 @@ class LocalStorageService {
   }
 
   static Future<void> saveUnlockSessions(
-      String childId, List<UnlockSession> sessions) async {
+    String childId,
+    List<UnlockSession> sessions,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = sessions.map((e) => jsonEncode(e.toMap())).toList();
     await prefs.setStringList('$unlockSessionsPrefix$childId', raw);
@@ -126,7 +130,10 @@ class LocalStorageService {
     await prefs.remove('$setupDonePrefix$childId');
   }
 
-  static Future<void> saveProtectionEnabled(String childId, bool enabled) async {
+  static Future<void> saveProtectionEnabled(
+    String childId,
+    bool enabled,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('$protectionEnabledPrefix$childId', enabled);
   }
@@ -146,9 +153,9 @@ class LocalStorageService {
     await prefs.setString(parentPinKey, pin);
   }
 
-  static Future<String> loadParentPin() async {
+  static Future<String?> loadParentPin() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(parentPinKey) ?? '1234';
+    return prefs.getString(parentPinKey);
   }
 
   static Future<void> clearAll() async {
