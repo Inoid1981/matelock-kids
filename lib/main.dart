@@ -225,7 +225,7 @@ class _StartupScreenState extends State<StartupScreen> {
   }
 }
 
-class ParentLoginScreen extends StatelessWidget {
+class ParentLoginScreen extends StatefulWidget {
   final AppLanguage language;
   final ValueChanged<AppLanguage> onLanguageChanged;
 
@@ -236,12 +236,147 @@ class ParentLoginScreen extends StatelessWidget {
   });
 
   @override
+  State<ParentLoginScreen> createState() => _ParentLoginScreenState();
+}
+
+class _ParentLoginScreenState extends State<ParentLoginScreen> {
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  bool _loading = true;
+  bool _hasParentAccount = false;
+  bool _showPassword = false;
+  String? _errorText;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAccountStatus();
+  }
+
+  Future<void> _loadAccountStatus() async {
+    final hasAccount = await LocalStorageService.hasParentAccount();
+
+    if (!mounted) return;
+
+    setState(() {
+      _hasParentAccount = hasAccount;
+      _loading = false;
+    });
+  }
+
+  Future<void> _continue() async {
+    if (!_hasParentAccount) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChildProfileScreen(
+            language: widget.language,
+            onLanguageChanged: widget.onLanguageChanged,
+          ),
+        ),
+      );
+      return;
+    }
+
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      setState(() {
+        _errorText = widget.language == AppLanguage.spanish
+            ? 'Introduce el email y la contraseña'
+            : 'Enter email and password';
+      });
+      return;
+    }
+
+    final savedEmail = await LocalStorageService.loadParentEmail();
+    final savedPassword = await LocalStorageService.loadParentPassword();
+
+    if (!mounted) return;
+
+    if (email != savedEmail || password != savedPassword) {
+      setState(() {
+        _errorText = widget.language == AppLanguage.spanish
+            ? 'Email o contraseña incorrectos'
+            : 'Incorrect email or password';
+      });
+      return;
+    }
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChildProfileScreen(
+          language: widget.language,
+          onLanguageChanged: widget.onLanguageChanged,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openForgotPasswordScreen() async {
+    final updated = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ForgotPasswordScreen(
+          language: widget.language,
+          onLanguageChanged: widget.onLanguageChanged,
+        ),
+      ),
+    );
+
+    if (updated == true && mounted) {
+      _passwordController.clear();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            widget.language == AppLanguage.spanish
+                ? 'Contraseña actualizada correctamente'
+                : 'Password updated successfully',
+          ),
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final isSpanish = widget.language == AppLanguage.spanish;
+
+    if (_loading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(tr(widget.language, 'appTitle')),
+          actions: [
+            LanguageSwitcher(
+              language: widget.language,
+              onChanged: widget.onLanguageChanged,
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(tr(language, 'appTitle')),
+        title: Text(tr(widget.language, 'appTitle')),
         actions: [
-          LanguageSwitcher(language: language, onChanged: onLanguageChanged),
+          LanguageSwitcher(
+            language: widget.language,
+            onChanged: widget.onLanguageChanged,
+          ),
           const SizedBox(width: 8),
         ],
       ),
@@ -268,7 +403,7 @@ class ParentLoginScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 18),
                         Text(
-                          tr(language, 'appTitle'),
+                          tr(widget.language, 'appTitle'),
                           style: const TextStyle(
                             fontSize: 30,
                             fontWeight: FontWeight.w800,
@@ -276,7 +411,7 @@ class ParentLoginScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          tr(language, 'tagline'),
+                          tr(widget.language, 'tagline'),
                           textAlign: TextAlign.center,
                           style: const TextStyle(fontSize: 16),
                         ),
@@ -286,37 +421,115 @@ class ParentLoginScreen extends StatelessWidget {
                   const SizedBox(height: 22),
                   PrettyCard(
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        TextField(
-                          decoration: InputDecoration(
-                            labelText: tr(language, 'email'),
-                            prefixIcon: const Icon(Icons.email_outlined),
+                        Text(
+                          _hasParentAccount
+                              ? (isSpanish
+                                    ? 'Inicia sesión con tu cuenta parental'
+                                    : 'Sign in with your parent account')
+                              : (isSpanish
+                                    ? 'Primero crea el perfil infantil. Después podrás configurar la cuenta parental desde el panel.'
+                                    : 'First create the child profile. Then you can configure the parent account from the dashboard.'),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(height: 14),
-                        TextField(
-                          obscureText: true,
-                          decoration: InputDecoration(
-                            labelText: tr(language, 'password'),
-                            prefixIcon: const Icon(Icons.lock_outline),
+                        if (_hasParentAccount) ...[
+                          const SizedBox(height: 18),
+                          TextField(
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            onChanged: (_) {
+                              if (_errorText != null) {
+                                setState(() {
+                                  _errorText = null;
+                                });
+                              }
+                            },
+                            decoration: InputDecoration(
+                              labelText: tr(widget.language, 'email'),
+                              prefixIcon: const Icon(Icons.email_outlined),
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: 14),
+                          TextField(
+                            controller: _passwordController,
+                            obscureText: !_showPassword,
+                            onChanged: (_) {
+                              if (_errorText != null) {
+                                setState(() {
+                                  _errorText = null;
+                                });
+                              }
+                            },
+                            decoration: InputDecoration(
+                              labelText: tr(widget.language, 'password'),
+                              prefixIcon: const Icon(Icons.lock_outline),
+                              suffixIcon: IconButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _showPassword = !_showPassword;
+                                  });
+                                },
+                                icon: Icon(
+                                  _showPassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: _openForgotPasswordScreen,
+                              child: Text(
+                                isSpanish
+                                    ? 'He olvidado mi contraseña'
+                                    : 'I forgot my password',
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (_errorText != null) ...[
+                          const SizedBox(height: 14),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFE5E5),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: const Color(0xFFE57373),
+                              ),
+                            ),
+                            child: Text(
+                              _errorText!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Color(0xFFB71C1C),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 18),
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
-                            onPressed: () {
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => ChildProfileScreen(
-                                    language: language,
-                                    onLanguageChanged: onLanguageChanged,
-                                  ),
-                                ),
-                              );
-                            },
-                            child: Text(tr(language, 'createFirstChild')),
+                            onPressed: _continue,
+                            child: Text(
+                              _hasParentAccount
+                                  ? (isSpanish ? 'Entrar' : 'Sign in')
+                                  : tr(widget.language, 'createFirstChild'),
+                            ),
                           ),
                         ),
                       ],
@@ -467,11 +680,25 @@ class _CreateParentPinScreenState extends State<CreateParentPinScreen> {
                     ),
                     if (_errorText != null) ...[
                       const SizedBox(height: 14),
-                      Text(
-                        _errorText!,
-                        style: const TextStyle(
-                          color: Colors.red,
-                          fontWeight: FontWeight.w600,
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFE5E5),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFE57373)),
+                        ),
+                        child: Text(
+                          _errorText!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Color(0xFFB71C1C),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ],
@@ -484,6 +711,587 @@ class _CreateParentPinScreenState extends State<CreateParentPinScreen> {
                           _saving
                               ? tr(widget.language, 'saving')
                               : tr(widget.language, 'save'),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ForgotPasswordScreen extends StatefulWidget {
+  final AppLanguage language;
+  final ValueChanged<AppLanguage> onLanguageChanged;
+
+  const ForgotPasswordScreen({
+    super.key,
+    required this.language,
+    required this.onLanguageChanged,
+  });
+
+  @override
+  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+}
+
+class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _pinController = TextEditingController();
+  final TextEditingController _newPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
+
+  bool _saving = false;
+  bool _showNewPassword = false;
+  bool _showConfirmPassword = false;
+  String? _errorText;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _pinController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _resetPassword() async {
+    final email = _emailController.text.trim().toLowerCase();
+    final pin = _pinController.text.trim();
+    final newPassword = _newPasswordController.text.trim();
+    final confirmPassword = _confirmPasswordController.text.trim();
+
+    if (email.isEmpty || !email.contains('@')) {
+      setState(() {
+        _errorText = widget.language == AppLanguage.spanish
+            ? 'Introduce un email válido'
+            : 'Enter a valid email';
+      });
+      return;
+    }
+
+    if (pin.length != 4) {
+      setState(() {
+        _errorText = widget.language == AppLanguage.spanish
+            ? 'Introduce tu PIN parental de 4 números'
+            : 'Enter your 4-digit parent PIN';
+      });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setState(() {
+        _errorText = widget.language == AppLanguage.spanish
+            ? 'La nueva contraseña debe tener al menos 6 caracteres'
+            : 'New password must be at least 6 characters';
+      });
+      return;
+    }
+
+    if (newPassword != confirmPassword) {
+      setState(() {
+        _errorText = widget.language == AppLanguage.spanish
+            ? 'Las contraseñas no coinciden'
+            : 'Passwords do not match';
+      });
+      return;
+    }
+
+    final savedEmailRaw = await LocalStorageService.loadParentEmail();
+    final savedPinRaw = await LocalStorageService.loadParentPin();
+
+    final savedEmail = (savedEmailRaw ?? '').trim().toLowerCase();
+    final savedPin = (savedPinRaw ?? '').trim();
+
+    if (!mounted) return;
+
+    if (savedEmail.isEmpty || savedPin.isEmpty) {
+      setState(() {
+        _errorText = widget.language == AppLanguage.spanish
+            ? 'No hay una cuenta parental o un PIN guardados todavía'
+            : 'There is no saved parent account or PIN yet';
+      });
+      return;
+    }
+
+    if (email != savedEmail) {
+      setState(() {
+        _errorText = widget.language == AppLanguage.spanish
+            ? 'El correo no coincide con la cuenta parental guardada'
+            : 'The email does not match the saved parent account';
+      });
+      return;
+    }
+
+    if (pin != savedPin) {
+      setState(() {
+        _errorText = widget.language == AppLanguage.spanish
+            ? 'El PIN parental no es correcto'
+            : 'The parent PIN is incorrect';
+      });
+      _pinController.clear();
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+      _errorText = null;
+    });
+
+    await LocalStorageService.saveParentPassword(newPassword);
+
+    if (!mounted) return;
+
+    Navigator.pop(context, true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isSpanish = widget.language == AppLanguage.spanish;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(isSpanish ? 'Recuperar contraseña' : 'Recover password'),
+        actions: [
+          LanguageSwitcher(
+            language: widget.language,
+            onChanged: widget.onLanguageChanged,
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 430),
+              child: PrettyCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isSpanish
+                          ? 'Recupera tu contraseña con tu email y tu PIN parental'
+                          : 'Recover your password with your email and parent PIN',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    TextField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      onChanged: (_) {
+                        if (_errorText != null) {
+                          setState(() {
+                            _errorText = null;
+                          });
+                        }
+                      },
+                      decoration: InputDecoration(
+                        labelText: 'Email',
+                        prefixIcon: const Icon(Icons.email_outlined),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: _pinController,
+                      keyboardType: TextInputType.number,
+                      obscureText: true,
+                      onChanged: (_) {
+                        if (_errorText != null) {
+                          setState(() {
+                            _errorText = null;
+                          });
+                        }
+                      },
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(4),
+                      ],
+                      decoration: InputDecoration(
+                        labelText: isSpanish ? 'PIN parental' : 'Parent PIN',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: _newPasswordController,
+                      obscureText: !_showNewPassword,
+                      onChanged: (_) {
+                        if (_errorText != null) {
+                          setState(() {
+                            _errorText = null;
+                          });
+                        }
+                      },
+                      decoration: InputDecoration(
+                        labelText: isSpanish
+                            ? 'Nueva contraseña'
+                            : 'New password',
+                        prefixIcon: const Icon(Icons.password_outlined),
+                        suffixIcon: IconButton(
+                          onPressed: () {
+                            setState(() {
+                              _showNewPassword = !_showNewPassword;
+                            });
+                          },
+                          icon: Icon(
+                            _showNewPassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: _confirmPasswordController,
+                      obscureText: !_showConfirmPassword,
+                      onChanged: (_) {
+                        if (_errorText != null) {
+                          setState(() {
+                            _errorText = null;
+                          });
+                        }
+                      },
+                      decoration: InputDecoration(
+                        labelText: isSpanish
+                            ? 'Confirmar nueva contraseña'
+                            : 'Confirm new password',
+                        prefixIcon: const Icon(Icons.verified_user_outlined),
+                        suffixIcon: IconButton(
+                          onPressed: () {
+                            setState(() {
+                              _showConfirmPassword = !_showConfirmPassword;
+                            });
+                          },
+                          icon: Icon(
+                            _showConfirmPassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (_errorText != null) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFE5E5),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFE57373)),
+                        ),
+                        child: Text(
+                          _errorText!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Color(0xFFB71C1C),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _saving ? null : _resetPassword,
+                        child: Text(
+                          _saving
+                              ? tr(widget.language, 'saving')
+                              : (isSpanish
+                                    ? 'Guardar nueva contraseña'
+                                    : 'Save new password'),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ParentAccountScreen extends StatefulWidget {
+  final AppLanguage language;
+  final ValueChanged<AppLanguage> onLanguageChanged;
+
+  const ParentAccountScreen({
+    super.key,
+    required this.language,
+    required this.onLanguageChanged,
+  });
+
+  @override
+  State<ParentAccountScreen> createState() => _ParentAccountScreenState();
+}
+
+class _ParentAccountScreenState extends State<ParentAccountScreen> {
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
+
+  bool _loading = true;
+  bool _saving = false;
+  bool _hasExistingAccount = false;
+  bool _showPassword = false;
+  bool _showConfirmPassword = false;
+  String? _errorText;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadParentAccount();
+  }
+
+  Future<void> _loadParentAccount() async {
+    final email = await LocalStorageService.loadParentEmail();
+    final password = await LocalStorageService.loadParentPassword();
+
+    if (!mounted) return;
+
+    setState(() {
+      _emailController.text = email ?? '';
+      _passwordController.text = password ?? '';
+      _confirmPasswordController.text = password ?? '';
+      _hasExistingAccount =
+          email != null &&
+          email.isNotEmpty &&
+          password != null &&
+          password.isNotEmpty;
+      _loading = false;
+    });
+  }
+
+  Future<void> _saveParentAccount() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+    final confirmPassword = _confirmPasswordController.text.trim();
+
+    if (email.isEmpty || !email.contains('@')) {
+      setState(() {
+        _errorText = widget.language == AppLanguage.spanish
+            ? 'Introduce un email válido'
+            : 'Enter a valid email';
+      });
+      return;
+    }
+
+    if (password.length < 6) {
+      setState(() {
+        _errorText = widget.language == AppLanguage.spanish
+            ? 'La contraseña debe tener al menos 6 caracteres'
+            : 'Password must be at least 6 characters';
+      });
+      return;
+    }
+
+    if (password != confirmPassword) {
+      setState(() {
+        _errorText = widget.language == AppLanguage.spanish
+            ? 'Las contraseñas no coinciden'
+            : 'Passwords do not match';
+      });
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+      _errorText = null;
+    });
+
+    await LocalStorageService.saveParentEmail(email);
+    await LocalStorageService.saveParentPassword(password);
+
+    if (!mounted) return;
+
+    Navigator.pop(context, true);
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isSpanish = widget.language == AppLanguage.spanish;
+
+    if (_loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(isSpanish ? 'Cuenta parental' : 'Parent account'),
+        actions: [
+          LanguageSwitcher(
+            language: widget.language,
+            onChanged: widget.onLanguageChanged,
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 430),
+              child: PrettyCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _hasExistingAccount
+                          ? (isSpanish
+                                ? 'Editar cuenta parental'
+                                : 'Edit parent account')
+                          : (isSpanish
+                                ? 'Crear cuenta parental'
+                                : 'Create parent account'),
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      isSpanish
+                          ? 'Guarda aquí el email y la contraseña del padre o la madre'
+                          : 'Save here the parent email and password',
+                    ),
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      onChanged: (_) {
+                        if (_errorText != null) {
+                          setState(() {
+                            _errorText = null;
+                          });
+                        }
+                      },
+                      decoration: InputDecoration(
+                        labelText: 'Email',
+                        prefixIcon: const Icon(Icons.email_outlined),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: _passwordController,
+                      obscureText: !_showPassword,
+                      onChanged: (_) {
+                        if (_errorText != null) {
+                          setState(() {
+                            _errorText = null;
+                          });
+                        }
+                      },
+                      decoration: InputDecoration(
+                        labelText: isSpanish ? 'Contraseña' : 'Password',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        suffixIcon: IconButton(
+                          onPressed: () {
+                            setState(() {
+                              _showPassword = !_showPassword;
+                            });
+                          },
+                          icon: Icon(
+                            _showPassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: _confirmPasswordController,
+                      obscureText: !_showConfirmPassword,
+                      onChanged: (_) {
+                        if (_errorText != null) {
+                          setState(() {
+                            _errorText = null;
+                          });
+                        }
+                      },
+                      decoration: InputDecoration(
+                        labelText: isSpanish
+                            ? 'Confirmar contraseña'
+                            : 'Confirm password',
+                        prefixIcon: const Icon(Icons.verified_user_outlined),
+                        suffixIcon: IconButton(
+                          onPressed: () {
+                            setState(() {
+                              _showConfirmPassword = !_showConfirmPassword;
+                            });
+                          },
+                          icon: Icon(
+                            _showConfirmPassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (_errorText != null) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFE5E5),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFE57373)),
+                        ),
+                        child: Text(
+                          _errorText!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Color(0xFFB71C1C),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _saving ? null : _saveParentAccount,
+                        child: Text(
+                          _saving
+                              ? tr(widget.language, 'saving')
+                              : (isSpanish
+                                    ? 'Guardar cuenta parental'
+                                    : 'Save parent account'),
                         ),
                       ),
                     ),
@@ -1236,18 +2044,72 @@ class ParentPinGateScreen extends StatefulWidget {
 }
 
 class _ParentPinGateScreenState extends State<ParentPinGateScreen> {
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _pinController = TextEditingController();
+
   String? _errorText;
   bool _unlocked = false;
+  bool _loading = true;
+  bool _hasParentAccount = false;
+  bool _showPassword = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadParentAccountStatus();
+  }
+
+  Future<void> _loadParentAccountStatus() async {
+    final hasAccount = await LocalStorageService.hasParentAccount();
+
+    if (!mounted) return;
+
+    setState(() {
+      _hasParentAccount = hasAccount;
+      _loading = false;
+    });
+  }
 
   @override
   void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
     _pinController.dispose();
     super.dispose();
   }
 
-  void _continue() {
+  void _continue() async {
     final pin = _pinController.text.trim();
+
+    if (_hasParentAccount) {
+      final email = _emailController.text.trim();
+      final password = _passwordController.text.trim();
+
+      if (email.isEmpty || password.isEmpty) {
+        setState(() {
+          _errorText = widget.language == AppLanguage.spanish
+              ? 'Introduce el email y la contraseña'
+              : 'Enter email and password';
+        });
+        return;
+      }
+
+      final savedEmail = await LocalStorageService.loadParentEmail();
+      final savedPassword = await LocalStorageService.loadParentPassword();
+
+      if (!mounted) return;
+
+      if (email != savedEmail || password != savedPassword) {
+        setState(() {
+          _errorText = widget.language == AppLanguage.spanish
+              ? 'Email o contraseña incorrectos'
+              : 'Incorrect email or password';
+        });
+        _passwordController.clear();
+        return;
+      }
+    }
 
     if (pin == widget.parentPin) {
       setState(() {
@@ -1269,6 +2131,7 @@ class _ParentPinGateScreenState extends State<ParentPinGateScreen> {
   @override
   Widget build(BuildContext context) {
     final isSpanish = widget.language == AppLanguage.spanish;
+
     if (_unlocked) {
       return ParentDashboardScreen(
         children: widget.children,
@@ -1282,6 +2145,23 @@ class _ParentPinGateScreenState extends State<ParentPinGateScreen> {
         onLanguageChanged: widget.onLanguageChanged,
       );
     }
+
+    if (_loading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(isSpanish ? 'Acceso parental' : 'Parent access'),
+          actions: [
+            LanguageSwitcher(
+              language: widget.language,
+              onChanged: widget.onLanguageChanged,
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(isSpanish ? 'Acceso parental' : 'Parent access'),
@@ -1304,20 +2184,71 @@ class _ParentPinGateScreenState extends State<ParentPinGateScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isSpanish
-                          ? 'Introduce tu PIN para entrar al panel de padres'
-                          : 'Enter your PIN to access the parents panel',
+                      _hasParentAccount
+                          ? (isSpanish
+                                ? 'Introduce tu email, tu contraseña y tu PIN para entrar al panel de padres'
+                                : 'Enter your email, password and PIN to access the parents panel')
+                          : (isSpanish
+                                ? 'Introduce tu PIN para entrar al panel de padres'
+                                : 'Enter your PIN to access the parents panel'),
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                     const SizedBox(height: 18),
+
+                    if (_hasParentAccount) ...[
+                      TextField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        onChanged: (_) {
+                          if (_errorText != null) {
+                            setState(() {
+                              _errorText = null;
+                            });
+                          }
+                        },
+                        decoration: InputDecoration(
+                          labelText: 'Email',
+                          prefixIcon: const Icon(Icons.email_outlined),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: _passwordController,
+                        obscureText: !_showPassword,
+                        onChanged: (_) {
+                          if (_errorText != null) {
+                            setState(() {
+                              _errorText = null;
+                            });
+                          }
+                        },
+                        decoration: InputDecoration(
+                          labelText: isSpanish ? 'Contraseña' : 'Password',
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          suffixIcon: IconButton(
+                            onPressed: () {
+                              setState(() {
+                                _showPassword = !_showPassword;
+                              });
+                            },
+                            icon: Icon(
+                              _showPassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+
                     TextField(
                       controller: _pinController,
                       keyboardType: TextInputType.number,
                       obscureText: true,
-
                       onChanged: (_) {
                         if (_errorText != null) {
                           setState(() {
@@ -1335,6 +2266,7 @@ class _ParentPinGateScreenState extends State<ParentPinGateScreen> {
                         prefixIcon: const Icon(Icons.lock_outline),
                       ),
                     ),
+
                     if (_errorText != null) ...[
                       const SizedBox(height: 14),
                       Container(
@@ -1359,6 +2291,7 @@ class _ParentPinGateScreenState extends State<ParentPinGateScreen> {
                         ),
                       ),
                     ],
+
                     const SizedBox(height: 20),
                     SizedBox(
                       width: double.infinity,
@@ -1995,6 +2928,33 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
     }
   }
 
+  Future<void> _openParentAccountScreen() async {
+    final allowed = await _askForPin();
+    if (!allowed || !mounted) return;
+
+    final saved = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ParentAccountScreen(
+          language: widget.language,
+          onLanguageChanged: widget.onLanguageChanged,
+        ),
+      ),
+    );
+
+    if (saved == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            widget.language == AppLanguage.spanish
+                ? 'Cuenta parental guardada'
+                : 'Parent account saved',
+          ),
+        ),
+      );
+    }
+  }
+
   Future<void> _evaluateDashboardAchievements() async {
     if (blockedApps.length >= 3) {
       _addAchievement('apps_3');
@@ -2324,6 +3284,16 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
                 widget.language == AppLanguage.spanish
                     ? 'Cambiar PIN parental'
                     : 'Change parent PIN',
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _openParentAccountScreen,
+              icon: const Icon(Icons.manage_accounts_outlined),
+              label: Text(
+                widget.language == AppLanguage.spanish
+                    ? 'Cuenta parental'
+                    : 'Parent account',
               ),
             ),
             const SizedBox(height: 12),

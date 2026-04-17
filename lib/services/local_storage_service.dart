@@ -17,6 +17,8 @@ class LocalStorageService {
   static const String setupDonePrefix = 'setup_done_';
   static const String protectionEnabledPrefix = 'protection_enabled_';
   static const String parentPinKey = 'parent_pin';
+  static const String parentEmailKey = 'parent_email';
+  static const String parentPasswordKey = 'parent_password';
 
   static Future<void> saveChildren(List<ChildProfile> children) async {
     final prefs = await SharedPreferences.getInstance();
@@ -151,6 +153,37 @@ class LocalStorageService {
   static Future<void> saveParentPin(String pin) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(parentPinKey, pin);
+  }
+
+  static Future<void> saveParentEmail(String email) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(parentEmailKey, email);
+  }
+
+  static Future<String?> loadParentEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(parentEmailKey);
+  }
+
+  static Future<void> saveParentPassword(String password) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(parentPasswordKey, password);
+  }
+
+  static Future<String?> loadParentPassword() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(parentPasswordKey);
+  }
+
+  static Future<bool> hasParentAccount() async {
+    final prefs = await SharedPreferences.getInstance();
+    final email = prefs.getString(parentEmailKey);
+    final password = prefs.getString(parentPasswordKey);
+
+    return email != null &&
+        email.isNotEmpty &&
+        password != null &&
+        password.isNotEmpty;
   }
 
   static Future<String?> loadParentPin() async {
