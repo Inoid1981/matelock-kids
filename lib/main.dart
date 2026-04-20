@@ -193,6 +193,7 @@ class _StartupScreenState extends State<StartupScreen> {
       return ParentLoginScreen(
         language: widget.language,
         onLanguageChanged: widget.onLanguageChanged,
+        parentPin: parentPin,
       );
     }
 
@@ -228,11 +229,13 @@ class _StartupScreenState extends State<StartupScreen> {
 class ParentLoginScreen extends StatefulWidget {
   final AppLanguage language;
   final ValueChanged<AppLanguage> onLanguageChanged;
+  final String parentPin;
 
   const ParentLoginScreen({
     super.key,
     required this.language,
     required this.onLanguageChanged,
+    required this.parentPin,
   });
 
   @override
@@ -323,6 +326,7 @@ class _ParentLoginScreenState extends State<ParentLoginScreen> {
         builder: (_) => ForgotPasswordScreen(
           language: widget.language,
           onLanguageChanged: widget.onLanguageChanged,
+          knownParentPin: widget.parentPin,
         ),
       ),
     );
@@ -728,11 +732,13 @@ class _CreateParentPinScreenState extends State<CreateParentPinScreen> {
 class ForgotPasswordScreen extends StatefulWidget {
   final AppLanguage language;
   final ValueChanged<AppLanguage> onLanguageChanged;
+  final String knownParentPin;
 
   const ForgotPasswordScreen({
     super.key,
     required this.language,
     required this.onLanguageChanged,
+    required this.knownParentPin,
   });
 
   @override
@@ -803,18 +809,27 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     }
 
     final savedEmailRaw = await LocalStorageService.loadParentEmail();
-    final savedPinRaw = await LocalStorageService.loadParentPin();
+    //final savedPinRaw = await LocalStorageService.loadParentPin();
 
     final savedEmail = (savedEmailRaw ?? '').trim().toLowerCase();
-    final savedPin = (savedPinRaw ?? '').trim();
+    final savedPin = widget.knownParentPin.trim();
 
     if (!mounted) return;
 
-    if (savedEmail.isEmpty || savedPin.isEmpty) {
+    if (savedEmail.isEmpty) {
       setState(() {
         _errorText = widget.language == AppLanguage.spanish
-            ? 'No hay una cuenta parental o un PIN guardados todavía'
-            : 'There is no saved parent account or PIN yet';
+            ? 'No hay una cuenta parental guardada todavía'
+            : 'There is no saved parent account yet';
+      });
+      return;
+    }
+
+    if (savedPin.isEmpty) {
+      setState(() {
+        _errorText = widget.language == AppLanguage.spanish
+            ? 'No hay un PIN parental disponible'
+            : 'There is no parent PIN available';
       });
       return;
     }
@@ -2659,6 +2674,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
         builder: (_) => ParentLoginScreen(
           language: widget.language,
           onLanguageChanged: widget.onLanguageChanged,
+          parentPin: parentPin,
         ),
       ),
       (route) => false,
@@ -4034,6 +4050,7 @@ class _ChildManagerScreenState extends State<ChildManagerScreen> {
           builder: (_) => ParentLoginScreen(
             language: widget.language,
             onLanguageChanged: widget.onLanguageChanged,
+            parentPin: '',
           ),
         ),
         (route) => false,
