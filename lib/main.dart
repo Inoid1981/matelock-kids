@@ -2944,6 +2944,46 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
     }
   }
 
+  Future<void> _logout() async {
+    final isSpanish = widget.language == AppLanguage.spanish;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(isSpanish ? 'Cerrar sesión' : 'Sign out'),
+        content: Text(
+          isSpanish
+              ? '¿Quieres cerrar la sesión parental?'
+              : 'Do you want to sign out of the parent session?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(isSpanish ? 'Cancelar' : 'Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(isSpanish ? 'Cerrar sesión' : 'Sign out'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ParentLoginScreen(
+          language: widget.language,
+          onLanguageChanged: widget.onLanguageChanged,
+          parentPin: widget.parentPin,
+        ),
+      ),
+      (route) => false,
+    );
+  }
+
   Future<void> _openParentAccountScreen() async {
     final allowed = await _askForPin();
     if (!allowed || !mounted) return;
@@ -3054,6 +3094,13 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
       appBar: AppBar(
         title: Text(tr(widget.language, 'parentsPanel')),
         actions: [
+          IconButton(
+            onPressed: _logout,
+            icon: const Icon(Icons.logout),
+            tooltip: widget.language == AppLanguage.spanish
+                ? 'Cerrar sesión'
+                : 'Sign out',
+          ),
           LanguageSwitcher(
             language: widget.language,
             onChanged: widget.onLanguageChanged,
