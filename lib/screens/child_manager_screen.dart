@@ -58,6 +58,8 @@ class _ChildManagerScreenState extends State<ChildManagerScreen> {
 
     if (confirm != true) return;
 
+    final wasActiveChild = child.id == widget.activeChildId;
+
     children.removeWhere((c) => c.id == child.id);
     await LocalStorageService.saveChildren(children);
     await LocalStorageService.deleteStats(child.id);
@@ -77,8 +79,13 @@ class _ChildManagerScreenState extends State<ChildManagerScreen> {
       return;
     }
 
-    if (child.id == widget.activeChildId) {
-      await LocalStorageService.saveActiveChildId(children.first.id);
+    if (wasActiveChild) {
+      final newActiveChild = children.first;
+      await LocalStorageService.saveActiveChildId(newActiveChild.id);
+
+      if (!mounted) return;
+      Navigator.pop(context, newActiveChild);
+      return;
     }
 
     if (!mounted) return;
