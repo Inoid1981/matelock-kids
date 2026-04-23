@@ -58,7 +58,7 @@ class _ParentAccountScreenState extends State<ParentAccountScreen> {
   }
 
   Future<void> _saveParentAccount() async {
-    final email = _emailController.text.trim();
+    final email = _emailController.text.trim().toLowerCase();
     final password = _passwordController.text.trim();
     final confirmPassword = _confirmPasswordController.text.trim();
 

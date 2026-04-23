@@ -59,7 +59,7 @@ class _ParentLoginScreenState extends State<ParentLoginScreen> {
       return;
     }
 
-    final email = _emailController.text.trim();
+    final email = _emailController.text.trim().toLowerCase();
     final password = _passwordController.text.trim();
 
     if (email.isEmpty || password.isEmpty) {
@@ -71,7 +71,8 @@ class _ParentLoginScreenState extends State<ParentLoginScreen> {
       return;
     }
 
-    final savedEmail = await LocalStorageService.loadParentEmail();
+    final savedEmailRaw = await LocalStorageService.loadParentEmail();
+    final savedEmail = (savedEmailRaw ?? '').trim().toLowerCase();
     final savedPassword = await LocalStorageService.loadParentPassword();
 
     if (!mounted) return;
