@@ -886,41 +886,64 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
           addChildBuilder: (_) => ChildProfileScreen(
             language: widget.language,
             onLanguageChanged: widget.onLanguageChanged,
-            afterCreateBuilder: (_) => CreateParentPinScreen(
-              language: widget.language,
-              onLanguageChanged: widget.onLanguageChanged,
-              nextScreenBuilder: (_) => StartupScreen(
-                language: widget.language,
-                onLanguageChanged: widget.onLanguageChanged,
-              ),
-            ),
           ),
         ),
       ),
     );
 
-    if (selected != null) {
-      await LocalStorageService.saveActiveChildId(selected.id);
-      final setupDone = await LocalStorageService.loadSetupDone(selected.id);
+    if (selected == null) return;
 
-      if (!mounted) return;
+    await LocalStorageService.saveActiveChildId(selected.id);
+    final selectedSetupDone = await LocalStorageService.loadSetupDone(
+      selected.id,
+    );
 
-      if (!setupDone) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => InitialSetupScreen(
-              childId: selected.id,
-              language: widget.language,
-              onLanguageChanged: widget.onLanguageChanged,
-            ),
+    if (!mounted) return;
+
+    if (!selectedSetupDone) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => InitialSetupScreen(
+            childId: selected.id,
+            language: widget.language,
+            onLanguageChanged: widget.onLanguageChanged,
           ),
-        );
-        return;
-      }
-
-      await _refreshActiveChild();
+        ),
+      );
+      return;
     }
+
+    final refreshedChildren = await LocalStorageService.loadChildren();
+    final refreshedStats = await LocalStorageService.loadStats(selected.id);
+    final refreshedBlockedApps = await LocalStorageService.loadBlockedApps(
+      selected.id,
+    );
+    final refreshedAndroidConfig = await LocalStorageService.loadAndroidConfig(
+      selected.id,
+    );
+    final refreshedUnlocks = await LocalStorageService.loadUnlockSessions(
+      selected.id,
+    );
+
+    ChildProfile refreshedActiveChild = selected;
+    try {
+      refreshedActiveChild = refreshedChildren.firstWhere(
+        (c) => c.id == selected.id,
+      );
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    setState(() {
+      children = refreshedChildren;
+      activeChild = refreshedActiveChild;
+      stats = refreshedStats;
+      blockedApps = refreshedBlockedApps;
+      androidConfig = refreshedAndroidConfig;
+      unlockSessions = refreshedUnlocks.where((e) => e.isActive).toList();
+      protectionEnabled = refreshedAndroidConfig.foregroundServiceGranted;
+    });
   }
 
   Future<void> _addChild() async {
@@ -933,14 +956,6 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
         builder: (_) => ChildProfileScreen(
           language: widget.language,
           onLanguageChanged: widget.onLanguageChanged,
-          afterCreateBuilder: (_) => CreateParentPinScreen(
-            language: widget.language,
-            onLanguageChanged: widget.onLanguageChanged,
-            nextScreenBuilder: (_) => StartupScreen(
-              language: widget.language,
-              onLanguageChanged: widget.onLanguageChanged,
-            ),
-          ),
         ),
       ),
     );
