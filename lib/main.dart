@@ -1,4 +1,6 @@
 ﻿import 'dart:math';
+import 'screens/protected_apps_test_screen.dart';
+import 'screens/avatar_selector_screen.dart';
 import 'screens/parent_pin_gate_sceen.dart';
 import 'screens/parent_login_screen.dart';
 import 'screens/internal_pin_check_screen.dart';
@@ -1142,6 +1144,31 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
           unlockSessions: unlockSessions,
           language: widget.language,
           onLanguageChanged: widget.onLanguageChanged,
+          onRequestOpenApp: (appName) async {
+            final stats = AppStats(difficultyLevel: 1);
+
+            final granted = await Navigator.push<bool>(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ProtectedAppGateScreen(
+                  profile: activeChild,
+                  appName: appName,
+                  config: androidConfig,
+                  language: widget.language,
+                  onLanguageChanged: widget.onLanguageChanged,
+                  tempStats: stats,
+                ),
+              ),
+            );
+
+            if (granted == true) {
+              await androidChannel.invokeMethod<bool>('openAppById', {
+                'appId': appName,
+              });
+            }
+
+            return granted;
+          },
         ),
       ),
     );
@@ -2128,105 +2155,6 @@ class _MathChallengeScreenState extends State<MathChallengeScreen> {
   }
 }
 
-class AvatarSelectorScreen extends StatelessWidget {
-  final String selectedAvatar;
-  final List<String> unlockedAvatars;
-  final AppLanguage language;
-
-  const AvatarSelectorScreen({
-    super.key,
-    required this.selectedAvatar,
-    required this.unlockedAvatars,
-    required this.language,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    const allAvatars = ['bear', 'robot', 'ninja', 'astronaut', 'fox', 'cat'];
-
-    return Scaffold(
-      appBar: AppBar(title: Text(tr(language, 'chooseAvatar'))),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            PrettyCard(
-              color: const Color(0xFFEAEFFF),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    tr(language, 'avatars'),
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(tr(language, 'selectedAvatar')),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            GridView.builder(
-              itemCount: allAvatars.length,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 1.1,
-              ),
-              itemBuilder: (_, index) {
-                final avatarId = allAvatars[index];
-                final unlocked = unlockedAvatars.contains(avatarId);
-                final selected = selectedAvatar == avatarId;
-
-                return GestureDetector(
-                  onTap: unlocked
-                      ? () => Navigator.pop(context, avatarId)
-                      : null,
-                  child: PrettyCard(
-                    color: selected
-                        ? Colors.indigo.withOpacity(0.12)
-                        : Colors.white,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          avatarEmoji(avatarId),
-                          style: const TextStyle(fontSize: 42),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          avatarLabel(language, avatarId),
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          unlocked
-                              ? (selected ? tr(language, 'selectedAvatar') : '')
-                              : tr(language, 'lockedAvatar'),
-                          style: TextStyle(
-                            color: unlocked ? Colors.indigo : Colors.redAccent,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class BlockedAppsScreen extends StatefulWidget {
   final List<String> selectedApps;
   final AppLanguage language;
@@ -2773,284 +2701,6 @@ class _AndroidSetupScreenState extends State<AndroidSetupScreen>
               child: Text(tr(widget.language, 'save')),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class ProtectedAppsTestScreen extends StatefulWidget {
-  final ChildProfile profile;
-  final List<String> blockedApps;
-  final AndroidConfig config;
-  final List<UnlockSession> unlockSessions;
-  final AppLanguage language;
-  final ValueChanged<AppLanguage> onLanguageChanged;
-
-  const ProtectedAppsTestScreen({
-    super.key,
-    required this.profile,
-    required this.blockedApps,
-    required this.config,
-    required this.unlockSessions,
-    required this.language,
-    required this.onLanguageChanged,
-  });
-
-  @override
-  State<ProtectedAppsTestScreen> createState() =>
-      _ProtectedAppsTestScreenState();
-}
-
-class _ProtectedAppsTestScreenState extends State<ProtectedAppsTestScreen> {
-  late List<UnlockSession> unlockSessions;
-
-  @override
-  void initState() {
-    super.initState();
-    unlockSessions = widget.unlockSessions.where((e) => e.isActive).toList();
-  }
-
-  String _debugPackageForApp(String appId) {
-    switch (appId) {
-      case 'youtube':
-        return 'com.google.android.youtube';
-      case 'calculator':
-        return 'com.miui.calculator';
-      case 'chrome':
-        return 'com.android.chrome';
-      case 'whatsapp':
-        return 'com.whatsapp';
-      case 'instagram':
-        return 'com.instagram.android';
-      case 'tiktok':
-        return 'com.zhiliaoapp.musically';
-      default:
-        return appId;
-    }
-  }
-
-  bool _isUnlocked(String appName) {
-    return unlockSessions.any((s) => s.appName == appName && s.isActive);
-  }
-
-  DateTime? _getExpiry(String appName) {
-    try {
-      return unlockSessions
-          .firstWhere((s) => s.appName == appName && s.isActive)
-          .expiresAt;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  String _formatDate(DateTime dt) {
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    return '$h:$m';
-  }
-
-  Future<void> _openApp(String appName) async {
-    if (_isUnlocked(appName)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '${appLabel(widget.language, appName)} ${tr(widget.language, 'accessAllowed')}',
-          ),
-        ),
-      );
-      return;
-    }
-
-    final stats = AppStats(difficultyLevel: 1);
-    final granted = await Navigator.push<bool>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ProtectedAppGateScreen(
-          profile: widget.profile,
-          appName: appName,
-          config: widget.config,
-          language: widget.language,
-          onLanguageChanged: widget.onLanguageChanged,
-          tempStats: stats,
-        ),
-      ),
-    );
-
-    if (granted == true) {
-      final expiresAt = DateTime.now().add(
-        Duration(minutes: widget.config.unlockMinutes),
-      );
-
-      try {
-        await androidChannel.invokeMethod('setTemporaryUnlock', {
-          'appId': appName,
-          'unlockUntil': expiresAt.millisecondsSinceEpoch,
-        });
-
-        final debugPackage = _debugPackageForApp(appName);
-        final nativeUnlockUntil = await androidChannel.invokeMethod<int>(
-          'getTemporaryUnlockForPackage',
-          {'packageName': debugPackage},
-        );
-
-        //debugPrint('Paquete nativo: $debugPackage');
-        //debugPrint('unlockUntil guardado en Android: $nativeUnlockUntil');
-        //debugPrint('unlockUntil esperado: ${expiresAt.millisecondsSinceEpoch}');
-      } catch (e) {
-        debugPrint('Error guardando desbloqueo temporal nativo: $e');
-      }
-
-      unlockSessions.removeWhere((e) => e.appName == appName);
-      unlockSessions.add(UnlockSession(appName: appName, expiresAt: expiresAt));
-
-      try {
-        await Future.delayed(const Duration(milliseconds: 300));
-
-        final opened =
-            await androidChannel.invokeMethod<bool>('openAppById', {
-              'appId': appName,
-            }) ??
-            false;
-
-        // debugPrint('openAppById test: $opened');
-      } catch (e) {
-        debugPrint('Error abriendo app real desde test: $e');
-      }
-
-      if (!mounted) return;
-      setState(() {});
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cleanedSessions = unlockSessions.where((e) => e.isActive).toList();
-    final blockedApps = List<String>.from(widget.blockedApps);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(tr(widget.language, 'testProtectedApps')),
-        actions: [
-          LanguageSwitcher(
-            language: widget.language,
-            onChanged: widget.onLanguageChanged,
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: blockedApps.isEmpty
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      tr(widget.language, 'noBlockedApps'),
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(tr(widget.language, 'blockedAppsSubtitle')),
-                    const SizedBox(height: 20),
-                    OutlinedButton(
-                      onPressed: () => Navigator.pop(context, cleanedSessions),
-                      child: Text(tr(widget.language, 'backToPanel')),
-                    ),
-                  ],
-                )
-              : ListView(
-                  children: [
-                    Text(
-                      'Apps protegidas: ${blockedApps.length}',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ...blockedApps.map((app) {
-                      final unlocked = _isUnlocked(app);
-                      final expiry = _getExpiry(app);
-
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(unlocked ? Icons.lock_open : Icons.lock),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      appLabel(widget.language, app),
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                unlocked && expiry != null
-                                    ? '${tr(widget.language, 'unlockedUntil')} ${_formatDate(expiry)}'
-                                    : tr(widget.language, 'locked'),
-                              ),
-                              const SizedBox(height: 12),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton(
-                                  onPressed: () => _openApp(app),
-                                  child: Text(
-                                    tr(widget.language, 'openProtectedApp'),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }),
-                    if (cleanedSessions.isNotEmpty) ...[
-                      const SizedBox(height: 20),
-                      Text(
-                        tr(widget.language, 'unlockStatus'),
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      ...cleanedSessions.map(
-                        (session) => Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: ListTile(
-                            leading: const Icon(Icons.timer),
-                            title: Text(
-                              appLabel(widget.language, session.appName),
-                            ),
-                            subtitle: Text(
-                              '${tr(widget.language, 'unlockedUntil')} ${_formatDate(session.expiresAt)}',
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 20),
-                    OutlinedButton(
-                      onPressed: () => Navigator.pop(context, cleanedSessions),
-                      child: Text(tr(widget.language, 'backToPanel')),
-                    ),
-                  ],
-                ),
         ),
       ),
     );
