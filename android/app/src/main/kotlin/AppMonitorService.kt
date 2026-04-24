@@ -1,9 +1,12 @@
 package com.example.matelock_kids
 
+import android.content.pm.ServiceInfo
+import androidx.core.app.ServiceCompat
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
@@ -35,7 +38,8 @@ class AppMonitorService : Service() {
             } catch (e: Exception) {
                 e.printStackTrace()
             }
-            handler.postDelayed(this, 1500)
+
+            handler.postDelayed(this, 1000)
         }
     }
 
@@ -50,7 +54,16 @@ class AppMonitorService : Service() {
             .setOngoing(true)
             .build()
 
-        startForeground(NOTIFICATION_ID, notification)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+    ServiceCompat.startForeground(
+        this,
+        NOTIFICATION_ID,
+        notification,
+        ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+    )
+} else {
+    startForeground(NOTIFICATION_ID, notification)
+}
         handler.post(checkRunnable)
     }
 
@@ -71,6 +84,48 @@ class AppMonitorService : Service() {
     private fun clearUnlockForPackage(pkg: String) {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().remove("$UNLOCK_UNTIL_PACKAGE_PREFIX$pkg").apply()
+    }
+
+    @Suppress("DEPRECATION")
+    private fun getForegroundPackageName(): String? {
+        val usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+        val now = System.currentTimeMillis()
+
+        val events = usm.queryEvents(now - 30_000, now)
+        val event = UsageEvents.Event()
+
+        var lastForegroundPackage: String? = null
+
+        while (events.hasNextEvent()) {
+            events.getNextEvent(event)
+
+            val isForegroundEvent =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    event.eventType == UsageEvents.Event.ACTIVITY_RESUMED
+                } else {
+                    event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND
+                }
+
+            if (!event.packageName.isNullOrBlank() && isForegroundEvent) {
+                lastForegroundPackage = event.packageName
+            }
+        }
+
+        if (!lastForegroundPackage.isNullOrBlank()) {
+            return lastForegroundPackage
+        }
+
+        val stats = usm.queryUsageStats(
+            UsageStatsManager.INTERVAL_DAILY,
+            now - 5 * 60 * 1000,
+            now
+        )
+
+        if (stats.isNullOrEmpty()) {
+            return null
+        }
+
+        return stats.maxByOrNull { it.lastTimeUsed }?.packageName
     }
 
     private fun resolveBlockedPackageMap(blockedIds: Set<String>): Map<String, String> {
@@ -121,19 +176,7 @@ class AppMonitorService : Service() {
         val blockedPackageMap = resolveBlockedPackageMap(loadBlockedAppIds())
         if (blockedPackageMap.isEmpty()) return
 
-        val usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-        val time = System.currentTimeMillis()
-
-        val stats = usm.queryUsageStats(
-            UsageStatsManager.INTERVAL_DAILY,
-            time - 1000 * 10,
-            time
-        )
-
-        if (stats.isNullOrEmpty()) return
-
-        val recentApp = stats.maxByOrNull { it.lastTimeUsed } ?: return
-        val currentPackageName = recentApp.packageName
+        val currentPackageName = getForegroundPackageName() ?: return
 
         if (currentPackageName == this.packageName) return
 
@@ -178,8 +221,10 @@ class AppMonitorService : Service() {
                 "MateLock Monitor",
                 NotificationManager.IMPORTANCE_LOW
             )
+
             val manager =
                 getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
             manager.createNotificationChannel(channel)
         }
     }

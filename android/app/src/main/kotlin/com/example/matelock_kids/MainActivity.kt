@@ -1,13 +1,17 @@
 package com.example.matelock_kids
 
+import android.Manifest
 import android.app.AppOpsManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Process
 import android.provider.Settings
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -20,9 +24,12 @@ class MainActivity : FlutterActivity() {
     private val UNLOCK_UNTIL_PACKAGE_PREFIX = "unlock_until_pkg_"
     private val PENDING_BLOCKED_APP_KEY = "pending_blocked_app"
 
+    private val NOTIFICATION_PERMISSION_REQUEST_CODE = 2001
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         savePendingBlockedAppFromIntent(intent)
+        requestNotificationPermissionIfNeeded()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -43,6 +50,15 @@ class MainActivity : FlutterActivity() {
 
                     "hasUsageAccess" -> {
                         result.success(hasUsageStatsPermission())
+                    }
+
+                    "hasNotificationPermission" -> {
+                        result.success(hasNotificationPermission())
+                    }
+
+                    "requestNotificationPermission" -> {
+                        requestNotificationPermissionIfNeeded()
+                        result.success(true)
                     }
 
                     "openOverlaySettings" -> {
@@ -164,6 +180,34 @@ class MainActivity : FlutterActivity() {
             }
     }
 
+    private fun hasNotificationPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
+    }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val granted = ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+
+            if (!granted) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    NOTIFICATION_PERMISSION_REQUEST_CODE
+                )
+            }
+        }
+    }
+
     private fun savePendingBlockedAppFromIntent(intent: Intent?) {
         val blockedAppId = intent?.getStringExtra("blocked_app_id")
         if (blockedAppId.isNullOrBlank()) return
@@ -173,26 +217,26 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun openAppById(appId: String): Boolean {
-    val packages = resolvePackagesForAppId(appId)
+        val packages = resolvePackagesForAppId(appId)
 
-    for (pkg in packages) {
-        try {
-            val launchIntent = packageManager.getLaunchIntentForPackage(pkg)
-            if (launchIntent != null) {
-                launchIntent.addFlags(
-                    Intent.FLAG_ACTIVITY_NEW_TASK or
-                    Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
-                )
-                startActivity(launchIntent)
-                return true
+        for (pkg in packages) {
+            try {
+                val launchIntent = packageManager.getLaunchIntentForPackage(pkg)
+                if (launchIntent != null) {
+                    launchIntent.addFlags(
+                        Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
+                    )
+                    startActivity(launchIntent)
+                    return true
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
-    }
 
-    return false
-}
+        return false
+    }
 
     private fun resolvePackagesForAppId(appId: String): Set<String> {
         return when (appId) {
