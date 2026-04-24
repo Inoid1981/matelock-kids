@@ -474,6 +474,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
   late AndroidConfig androidConfig;
   late List<UnlockSession> unlockSessions;
   bool protectionEnabled = false;
+  bool _handlingPendingBlockedApp = false;
   bool _pendingProtectionActivation = false;
   bool _openingPendingBlockedApp = false;
 
@@ -481,6 +482,11 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _handlePendingBlockedAppIfAny();
+      }
+    });
     children = List<ChildProfile>.from(widget.children);
     activeChild = widget.activeChild;
     stats = widget.stats;
@@ -495,24 +501,6 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkPendingBlockedAppAndOpenGate();
     });
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      if (_pendingProtectionActivation) {
-        _resumeProtectionActivation();
-      } else {
-        _refreshAndroidPermissionStatus();
-        _checkPendingBlockedAppAndOpenGate();
-      }
-    }
   }
 
   bool get _isAndroid =>
@@ -733,6 +721,60 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error al desactivar protección: $e')),
       );
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          _handlePendingBlockedAppIfAny();
+        }
+      });
+    }
+  }
+
+  Future<void> _handlePendingBlockedAppIfAny() async {
+    if (_handlingPendingBlockedApp) return;
+
+    _handlingPendingBlockedApp = true;
+
+    try {
+      final appId = await androidChannel.invokeMethod<String>(
+        'consumePendingBlockedApp',
+      );
+
+      if (appId == null || appId.isEmpty) {
+        return;
+      }
+
+      final allowed = await _askForPin();
+
+      if (!mounted || !allowed) {
+        return;
+      }
+
+      final unlockUntil = DateTime.now()
+          .add(const Duration(seconds: 45))
+          .millisecondsSinceEpoch;
+
+      await androidChannel.invokeMethod('setTemporaryUnlock', {
+        'appId': appId,
+        'unlockUntil': unlockUntil,
+      });
+
+      await androidChannel.invokeMethod('openAppById', {'appId': appId});
+    } catch (e) {
+      debugPrint('Error handling pending blocked app: $e');
+    } finally {
+      _handlingPendingBlockedApp = false;
     }
   }
 
@@ -2100,19 +2142,6 @@ class _AndroidSetupScreenState extends State<AndroidSetupScreen>
     unlockSessions = widget.unlockSessions.where((e) => e.isActive).toList();
 
     _syncPermissionsFromAndroid();
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _syncPermissionsFromAndroid();
-    }
   }
 
   Future<void> _syncPermissionsFromAndroid() async {

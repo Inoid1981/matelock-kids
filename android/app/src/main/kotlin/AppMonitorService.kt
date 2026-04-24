@@ -1,7 +1,5 @@
 package com.example.matelock_kids
 
-import android.content.pm.ServiceInfo
-import androidx.core.app.ServiceCompat
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -10,11 +8,13 @@ import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
 
 class AppMonitorService : Service() {
 
@@ -55,15 +55,16 @@ class AppMonitorService : Service() {
             .build()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-    ServiceCompat.startForeground(
-        this,
-        NOTIFICATION_ID,
-        notification,
-        ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-    )
-} else {
-    startForeground(NOTIFICATION_ID, notification)
-}
+            ServiceCompat.startForeground(
+                this,
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+
         handler.post(checkRunnable)
     }
 
@@ -73,7 +74,15 @@ class AppMonitorService : Service() {
 
     private fun loadBlockedAppIds(): Set<String> {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getStringSet(BLOCKED_APPS_KEY, emptySet()) ?: emptySet()
+        val savedApps = prefs.getStringSet(BLOCKED_APPS_KEY, emptySet()) ?: emptySet()
+
+        val protectedApps = savedApps.toMutableSet()
+
+        // Ajustes queda siempre protegido para evitar que el niño quite permisos,
+        // fuerce cierre, borre datos o desinstale la app.
+        protectedApps.add("settings")
+
+        return protectedApps
     }
 
     private fun getUnlockUntilForPackage(pkg: String): Long {
@@ -151,6 +160,10 @@ class AppMonitorService : Service() {
 
                 "whatsapp" -> {
                     result["com.whatsapp"] = id
+                }
+
+                "settings" -> {
+                    result["com.android.settings"] = id
                 }
 
                 "calculator" -> {

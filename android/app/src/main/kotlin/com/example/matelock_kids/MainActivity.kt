@@ -217,29 +217,42 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun openAppById(appId: String): Boolean {
-        val packages = resolvePackagesForAppId(appId)
-
-        for (pkg in packages) {
-            try {
-                val launchIntent = packageManager.getLaunchIntentForPackage(pkg)
-                if (launchIntent != null) {
-                    launchIntent.addFlags(
-                        Intent.FLAG_ACTIVITY_NEW_TASK or
-                            Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
-                    )
-                    startActivity(launchIntent)
-                    return true
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+    if (appId == "settings") {
+        return try {
+            val intent = Intent(Settings.ACTION_SETTINGS)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
         }
-
-        return false
     }
+
+    val packages = resolvePackagesForAppId(appId)
+
+    for (pkg in packages) {
+        try {
+            val launchIntent = packageManager.getLaunchIntentForPackage(pkg)
+            if (launchIntent != null) {
+                launchIntent.addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
+                )
+                startActivity(launchIntent)
+                return true
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    return false
+}
 
     private fun resolvePackagesForAppId(appId: String): Set<String> {
         return when (appId) {
+            "settings"-> setOf("com.android.settings")
             "youtube" -> setOf("com.google.android.youtube")
             "instagram" -> setOf("com.instagram.android")
             "tiktok" -> setOf("com.zhiliaoapp.musically")
