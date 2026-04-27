@@ -762,12 +762,26 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
 
     try {
       final appId = await androidChannel.invokeMethod<String>(
-        'consumePendingBlockedApp',
+        'peekPendingBlockedApp',
       );
 
       if (appId == null || appId.isEmpty) {
         return;
       }
+
+      final appsConPinParental = <String>{
+        'settings',
+        'play_store',
+        'package_installer',
+      };
+
+      // Si es una app normal bloqueada, NO la tocamos aquí.
+      // Dejamos que siga el flujo normal del reto matemático.
+      if (!appsConPinParental.contains(appId)) {
+        return;
+      }
+
+      await androidChannel.invokeMethod('consumePendingBlockedApp');
 
       final allowed = await _askForPin();
 
@@ -775,12 +789,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
         return;
       }
 
-      final unlockDuration = appId == 'settings'
-          ? const Duration(minutes: 3)
-          : const Duration(seconds: 45);
-
       final unlockUntil = DateTime.now()
-          .add(unlockDuration)
+          .add(const Duration(minutes: 3))
           .millisecondsSinceEpoch;
 
       await androidChannel.invokeMethod('setTemporaryUnlock', {
