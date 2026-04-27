@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MateLock Kids</string>
+    <string name="device_admin_description">Evita que MateLock Kids sea desinstalado sin autorización parental.</string>
+</resources>

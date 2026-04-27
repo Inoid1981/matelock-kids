@@ -2,6 +2,8 @@ package com.example.matelock_kids
 
 import android.Manifest
 import android.app.AppOpsManager
+import android.app.admin.DevicePolicyManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -25,6 +27,7 @@ class MainActivity : FlutterActivity() {
     private val PENDING_BLOCKED_APP_KEY = "pending_blocked_app"
 
     private val NOTIFICATION_PERMISSION_REQUEST_CODE = 2001
+    private val DEVICE_ADMIN_REQUEST_CODE = 3001
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,6 +61,15 @@ class MainActivity : FlutterActivity() {
 
                     "requestNotificationPermission" -> {
                         requestNotificationPermissionIfNeeded()
+                        result.success(true)
+                    }
+
+                    "isDeviceAdminActive" -> {
+                        result.success(isDeviceAdminActive())
+                    }
+
+                    "requestDeviceAdmin" -> {
+                        requestDeviceAdmin()
                         result.success(true)
                     }
 
@@ -208,6 +220,34 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun isDeviceAdminActive(): Boolean {
+        val devicePolicyManager =
+            getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+
+        val componentName = ComponentName(
+            this,
+            MateLockDeviceAdminReceiver::class.java
+        )
+
+        return devicePolicyManager.isAdminActive(componentName)
+    }
+
+    private fun requestDeviceAdmin() {
+        val componentName = ComponentName(
+            this,
+            MateLockDeviceAdminReceiver::class.java
+        )
+
+        val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
+        intent.putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, componentName)
+        intent.putExtra(
+            DevicePolicyManager.EXTRA_ADD_EXPLANATION,
+            "Activa esta protección para evitar que MateLock Kids pueda ser desinstalado sin PIN parental."
+        )
+
+        startActivityForResult(intent, DEVICE_ADMIN_REQUEST_CODE)
+    }
+
     private fun savePendingBlockedAppFromIntent(intent: Intent?) {
         val blockedAppId = intent?.getStringExtra("blocked_app_id")
         if (blockedAppId.isNullOrBlank()) return
@@ -217,47 +257,56 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun openAppById(appId: String): Boolean {
-    if (appId == "settings") {
-        return try {
-            val intent = Intent(Settings.ACTION_SETTINGS)
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            startActivity(intent)
-            true
-        } catch (e: Exception) {
-            e.printStackTrace()
-            false
-        }
-    }
-
-    val packages = resolvePackagesForAppId(appId)
-
-    for (pkg in packages) {
-        try {
-            val launchIntent = packageManager.getLaunchIntentForPackage(pkg)
-            if (launchIntent != null) {
-                launchIntent.addFlags(
-                    Intent.FLAG_ACTIVITY_NEW_TASK or
-                        Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
-                )
-                startActivity(launchIntent)
-                return true
+        if (appId == "settings") {
+            return try {
+                val intent = Intent(Settings.ACTION_SETTINGS)
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(intent)
+                true
+            } catch (e: Exception) {
+                e.printStackTrace()
+                false
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
-    }
 
-    return false
-}
+        val packages = resolvePackagesForAppId(appId)
+
+        for (pkg in packages) {
+            try {
+                val launchIntent = packageManager.getLaunchIntentForPackage(pkg)
+                if (launchIntent != null) {
+                    launchIntent.addFlags(
+                        Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
+                    )
+                    startActivity(launchIntent)
+                    return true
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        return false
+    }
 
     private fun resolvePackagesForAppId(appId: String): Set<String> {
         return when (appId) {
-            "settings"-> setOf("com.android.settings")
             "youtube" -> setOf("com.google.android.youtube")
             "instagram" -> setOf("com.instagram.android")
             "tiktok" -> setOf("com.zhiliaoapp.musically")
             "chrome" -> setOf("com.android.chrome")
             "whatsapp" -> setOf("com.whatsapp")
+            "settings" -> setOf("com.android.settings")
+            "package_installer" -> setOf(
+                "com.google.android.packageinstaller",
+                "com.android.packageinstaller",
+                "com.google.android.permissioncontroller",
+                "com.android.permissioncontroller",
+                "com.miui.packageinstaller",
+                "com.samsung.android.packageinstaller"
+            )
+            "play_store" -> setOf("com.android.vending")
             "calculator" -> setOf(
                 "com.google.android.calculator",
                 "com.android.calculator2",

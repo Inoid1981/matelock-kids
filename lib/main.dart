@@ -618,36 +618,42 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
     try {
       final hasOverlay =
           await androidChannel.invokeMethod<bool>('canDrawOverlays') ?? false;
-      final hasUsage =
-          await androidChannel.invokeMethod<bool>('hasUsageAccess') ?? false;
-
-      if (!mounted) return;
-
-      setState(() {
-        androidConfig.overlayGranted = hasOverlay;
-        androidConfig.usageAccessGranted = hasUsage;
-      });
 
       if (!hasOverlay) {
         await androidChannel.invokeMethod('openOverlaySettings');
         return;
       }
 
-      if (!hasUsage) {
+      final hasUsageAccess =
+          await androidChannel.invokeMethod<bool>('hasUsageAccess') ?? false;
+
+      if (!hasUsageAccess) {
         await androidChannel.invokeMethod('openUsageAccessSettings');
         return;
       }
 
-      await _syncBlockedAppsWithAndroid();
+      final isDeviceAdminActive =
+          await androidChannel.invokeMethod<bool>('isDeviceAdminActive') ??
+          false;
+
+      if (!isDeviceAdminActive) {
+        await androidChannel.invokeMethod('requestDeviceAdmin');
+        return;
+      }
+
       await androidChannel.invokeMethod('startMonitorService');
 
+      androidConfig.overlayGranted = true;
+      androidConfig.usageAccessGranted = true;
       androidConfig.foregroundServiceGranted = true;
+
       await LocalStorageService.saveAndroidConfig(
         activeChild.id,
         androidConfig,
       );
 
       if (!mounted) return;
+
       setState(() {
         protectionEnabled = true;
         _pendingProtectionActivation = false;
@@ -658,6 +664,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
       ).showSnackBar(const SnackBar(content: Text('Protección activada')));
     } catch (e) {
       if (!mounted) return;
+
       setState(() {
         protectionEnabled = false;
         _pendingProtectionActivation = false;
@@ -733,10 +740,17 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (mounted) {
-          _handlePendingBlockedAppIfAny();
+      Future.delayed(const Duration(milliseconds: 200), () async {
+        if (!mounted) return;
+
+        await _refreshAndroidPermissionStatus();
+
+        if (_pendingProtectionActivation) {
+          await _resumeProtectionActivation();
+          return;
         }
+
+        await _handlePendingBlockedAppIfAny();
       });
     }
   }
@@ -761,8 +775,12 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
         return;
       }
 
+      final unlockDuration = appId == 'settings'
+          ? const Duration(minutes: 3)
+          : const Duration(seconds: 45);
+
       final unlockUntil = DateTime.now()
-          .add(const Duration(seconds: 45))
+          .add(unlockDuration)
           .millisecondsSinceEpoch;
 
       await androidChannel.invokeMethod('setTemporaryUnlock', {

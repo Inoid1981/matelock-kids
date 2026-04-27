@@ -81,7 +81,8 @@ class AppMonitorService : Service() {
         // Ajustes queda siempre protegido para evitar que el niño quite permisos,
         // fuerce cierre, borre datos o desinstale la app.
         protectedApps.add("settings")
-
+        //protectedApps.add("package_installer")
+        protectedApps.add("play_store")
         return protectedApps
     }
 
@@ -165,6 +166,18 @@ class AppMonitorService : Service() {
                 "settings" -> {
                     result["com.android.settings"] = id
                 }
+"package_installer" -> {
+    result["com.google.android.packageinstaller"] = id
+    result["com.android.packageinstaller"] = id
+    result["com.google.android.permissioncontroller"] = id
+    result["com.android.permissioncontroller"] = id
+    result["com.miui.packageinstaller"] = id
+    result["com.samsung.android.packageinstaller"] = id
+}
+
+"play_store" -> {
+    result["com.android.vending"] = id
+}
 
                 "calculator" -> {
                     result["com.google.android.calculator"] = id
@@ -186,6 +199,7 @@ class AppMonitorService : Service() {
     }
 
     private fun checkForegroundApp() {
+        
         val blockedPackageMap = resolveBlockedPackageMap(loadBlockedAppIds())
         if (blockedPackageMap.isEmpty()) return
 
