@@ -129,6 +129,7 @@ class _StartupScreenState extends State<StartupScreen> {
   AndroidConfig androidConfig = AndroidConfig();
   List<UnlockSession> unlockSessions = [];
   bool setupDone = false;
+  String? _pendingBlockedAppId;
 
   @override
   void initState() {
@@ -179,8 +180,35 @@ class _StartupScreenState extends State<StartupScreen> {
         selectedChild.id,
         loadedSessions,
       );
+      // ⚡ Capturar app pendiente (intercepción)
+      if (selectedChild != null &&
+          !kIsWeb &&
+          defaultTargetPlatform == TargetPlatform.android) {
+        try {
+          final pendingApp = await androidChannel.invokeMethod<String>(
+            'peekPendingBlockedApp',
+          );
+          if (pendingApp != null && pendingApp.isNotEmpty) {
+            _pendingBlockedAppId = pendingApp;
+          }
+        } catch (_) {}
+      }
     }
-
+    if (selectedChild != null &&
+        !kIsWeb &&
+        defaultTargetPlatform == TargetPlatform.android) {
+      try {
+        final pendingApp = await androidChannel.invokeMethod<String>(
+          'peekPendingBlockedApp',
+        );
+        print('🔍 Pending app: $pendingApp'); // <-- AÑADE ESTO
+        if (pendingApp != null && pendingApp.isNotEmpty) {
+          _pendingBlockedAppId = pendingApp;
+        }
+      } catch (e) {
+        print('❌ Error peek: $e'); // <-- Y ESTO
+      }
+    }
     setState(() {
       children = loadedChildren;
       activeChild = selectedChild;
@@ -199,7 +227,15 @@ class _StartupScreenState extends State<StartupScreen> {
     if (isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-
+    // 🔥 Si venimos de una intercepción, mostrar el reto matemático directamente
+    if (_pendingBlockedAppId != null && activeChild != null) {
+      return InterceptedAppGateScreen(
+        childId: activeChild!.id,
+        appName: _pendingBlockedAppId!,
+        language: widget.language,
+        onLanguageChanged: widget.onLanguageChanged,
+      );
+    }
     if (children.isEmpty || activeChild == null) {
       return ParentLoginScreen(
         language: widget.language,
@@ -757,10 +793,10 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
 
   Future<void> _handlePendingBlockedAppIfAny() async {
     if (_handlingPendingBlockedApp) return;
-
     _handlingPendingBlockedApp = true;
 
     try {
+      // Usamos peek para ver el ID sin consumirlo aún
       final appId = await androidChannel.invokeMethod<String>(
         'peekPendingBlockedApp',
       );
@@ -769,40 +805,108 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
         return;
       }
 
-      final appsConPinParental = <String>{
+      // Apps que requieren PIN parental en lugar de reto matemático
+      const appsConPinParental = {
         'settings',
         'play_store',
         'package_installer',
       };
 
-      // Si es una app normal bloqueada, NO la tocamos aquí.
-      // Dejamos que siga el flujo normal del reto matemático.
-      if (!appsConPinParental.contains(appId)) {
-        return;
+      if (appsConPinParental.contains(appId)) {
+        // 1. Consumimos el evento
+        await androidChannel.invokeMethod('consumePendingBlockedApp');
+
+        // 2. Pedimos el PIN
+        final allowed = await _askForPin();
+        if (!mounted || !allowed) return;
+
+        // 3. Desbloqueamos temporalmente y abrimos la app
+        final unlockUntil = DateTime.now()
+            .add(const Duration(minutes: 3))
+            .millisecondsSinceEpoch;
+
+        await androidChannel.invokeMethod('setTemporaryUnlock', {
+          'appId': appId,
+          'unlockUntil': unlockUntil,
+        });
+
+        await androidChannel.invokeMethod('openAppById', {'appId': appId});
+      } else {
+        // 🔥 App normal bloqueada: mostramos el reto matemático
+        // No consumimos aquí; lo hará _checkPendingBlockedAppAndOpenGate()
+        // De hecho, podemos invocar directamente el método que ya existe.
+        // Como alternativa, copiamos y adaptamos la lógica para evitar
+        // interferencias con el flag _openingPendingBlockedApp.
+
+        // Aseguramos que no se esté abriendo otro gate al mismo tiempo
+        if (_openingPendingBlockedApp) return;
+
+        _openingPendingBlockedApp = true;
+
+        // Consumimos la app pendiente
+        final pendingApp = await androidChannel.invokeMethod<String>(
+          'consumePendingBlockedApp',
+        );
+
+        if (!mounted || pendingApp == null || pendingApp.isEmpty) {
+          _openingPendingBlockedApp = false;
+          return;
+        }
+
+        // Verificamos que esté en la lista de bloqueadas
+        if (!blockedApps.contains(pendingApp)) {
+          _openingPendingBlockedApp = false;
+          return;
+        }
+
+        // Mostramos el reto matemático
+        final granted = await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ProtectedAppGateScreen(
+              profile: activeChild,
+              appName: pendingApp,
+              config: androidConfig,
+              language: widget.language,
+              onLanguageChanged: widget.onLanguageChanged,
+              tempStats: AppStats(difficultyLevel: 1),
+            ),
+          ),
+        );
+
+        if (granted == true) {
+          final expiresAt = DateTime.now().add(
+            Duration(minutes: androidConfig.unlockMinutes),
+          );
+
+          await androidChannel.invokeMethod('setTemporaryUnlock', {
+            'appId': pendingApp,
+            'unlockUntil': expiresAt.millisecondsSinceEpoch,
+          });
+
+          unlockSessions.removeWhere((e) => e.appName == pendingApp);
+          unlockSessions.add(
+            UnlockSession(appName: pendingApp, expiresAt: expiresAt),
+          );
+
+          await LocalStorageService.saveUnlockSessions(
+            activeChild.id,
+            unlockSessions,
+          );
+
+          await Future.delayed(const Duration(milliseconds: 300));
+          await androidChannel.invokeMethod<bool>('openAppById', {
+            'appId': pendingApp,
+          });
+        }
+
+        if (mounted) setState(() {});
       }
-
-      await androidChannel.invokeMethod('consumePendingBlockedApp');
-
-      final allowed = await _askForPin();
-
-      if (!mounted || !allowed) {
-        return;
-      }
-
-      final unlockUntil = DateTime.now()
-          .add(const Duration(minutes: 3))
-          .millisecondsSinceEpoch;
-
-      await androidChannel.invokeMethod('setTemporaryUnlock', {
-        'appId': appId,
-        'unlockUntil': unlockUntil,
-      });
-
-      await androidChannel.invokeMethod('openAppById', {'appId': appId});
     } catch (e) {
       debugPrint('Error handling pending blocked app: $e');
     } finally {
       _handlingPendingBlockedApp = false;
+      _openingPendingBlockedApp = false;
     }
   }
 
@@ -2759,6 +2863,79 @@ class _ProtectedAppGateScreenState extends State<ProtectedAppGateScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class InterceptedAppGateScreen extends StatefulWidget {
+  final String childId;
+  final String appName;
+  final AppLanguage language;
+  final ValueChanged<AppLanguage> onLanguageChanged;
+
+  const InterceptedAppGateScreen({
+    super.key,
+    required this.childId,
+    required this.appName,
+    required this.language,
+    required this.onLanguageChanged,
+  });
+
+  @override
+  State<InterceptedAppGateScreen> createState() =>
+      _InterceptedAppGateScreenState();
+}
+
+class _InterceptedAppGateScreenState extends State<InterceptedAppGateScreen> {
+  bool _loading = true;
+  late ChildProfile _child;
+  late AppStats _stats;
+  late AndroidConfig _config;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMinimalData();
+  }
+
+  Future<void> _loadMinimalData() async {
+    try {
+      final children = await LocalStorageService.loadChildren();
+      final child = children.firstWhere((c) => c.id == widget.childId);
+      final stats = await LocalStorageService.loadStats(widget.childId);
+      final config = await LocalStorageService.loadAndroidConfig(
+        widget.childId,
+      );
+
+      // Consumir la app pendiente para que no se vuelva a interceptar
+      await androidChannel.invokeMethod('consumePendingBlockedApp');
+
+      if (!mounted) return;
+      setState(() {
+        _child = child;
+        _stats = stats;
+        _config = config;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    return ProtectedAppGateScreen(
+      profile: _child,
+      appName: widget.appName,
+      config: _config,
+      language: widget.language,
+      onLanguageChanged: widget.onLanguageChanged,
+      tempStats: _stats,
     );
   }
 }
