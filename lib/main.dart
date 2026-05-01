@@ -2,6 +2,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:confetti/confetti.dart';
 
 import 'models/android_config.dart';
 import 'models/app_stats.dart';
@@ -41,7 +42,7 @@ class MateLockKidsApp extends StatefulWidget {
 
 class _MateLockKidsAppState extends State<MateLockKidsApp> {
   AppLanguage language = AppLanguage.spanish;
-
+  ThemeMode _themeMode = ThemeMode.system;
   void changeLanguage(AppLanguage newLanguage) {
     setState(() {
       language = newLanguage;
@@ -53,6 +54,7 @@ class _MateLockKidsAppState extends State<MateLockKidsApp> {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'MateLock Kids',
+      themeMode: _themeMode,
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
@@ -97,6 +99,7 @@ class _MateLockKidsAppState extends State<MateLockKidsApp> {
           ),
         ),
       ),
+
       home: StartupScreen(
         language: language,
         onLanguageChanged: changeLanguage,
@@ -180,35 +183,24 @@ class _StartupScreenState extends State<StartupScreen> {
         selectedChild.id,
         loadedSessions,
       );
-      // ⚡ Capturar app pendiente (intercepción)
-      if (selectedChild != null &&
-          !kIsWeb &&
-          defaultTargetPlatform == TargetPlatform.android) {
-        try {
-          final pendingApp = await androidChannel.invokeMethod<String>(
-            'peekPendingBlockedApp',
-          );
-          if (pendingApp != null && pendingApp.isNotEmpty) {
-            _pendingBlockedAppId = pendingApp;
-          }
-        } catch (_) {}
-      }
     }
+
+    // Detectar si venimos de una intercepción (app bloqueada abierta)
     if (selectedChild != null &&
         !kIsWeb &&
         defaultTargetPlatform == TargetPlatform.android) {
       try {
         final pendingApp = await androidChannel.invokeMethod<String>(
-          'peekPendingBlockedApp',
+          'consumePendingBlockedApp',
         );
-        print('🔍 Pending app: $pendingApp'); // <-- AÑADE ESTO
         if (pendingApp != null && pendingApp.isNotEmpty) {
           _pendingBlockedAppId = pendingApp;
         }
-      } catch (e) {
-        print('❌ Error peek: $e'); // <-- Y ESTO
-      }
+      } catch (_) {}
     }
+
+    if (!mounted) return;
+
     setState(() {
       children = loadedChildren;
       activeChild = selectedChild;
@@ -227,7 +219,8 @@ class _StartupScreenState extends State<StartupScreen> {
     if (isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    // 🔥 Si venimos de una intercepción, mostrar el reto matemático directamente
+
+    // Intercepción: reto matemático directo
     if (_pendingBlockedAppId != null && activeChild != null) {
       return InterceptedAppGateScreen(
         childId: activeChild!.id,
@@ -236,6 +229,7 @@ class _StartupScreenState extends State<StartupScreen> {
         onLanguageChanged: widget.onLanguageChanged,
       );
     }
+
     if (children.isEmpty || activeChild == null) {
       return ParentLoginScreen(
         language: widget.language,
@@ -796,16 +790,14 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
     _handlingPendingBlockedApp = true;
 
     try {
-      // Usamos peek para ver el ID sin consumirlo aún
       final appId = await androidChannel.invokeMethod<String>(
-        'peekPendingBlockedApp',
+        'consumePendingBlockedApp',
       );
 
       if (appId == null || appId.isEmpty) {
         return;
       }
 
-      // Apps que requieren PIN parental en lugar de reto matemático
       const appsConPinParental = {
         'settings',
         'play_store',
@@ -813,14 +805,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
       };
 
       if (appsConPinParental.contains(appId)) {
-        // 1. Consumimos el evento
-        await androidChannel.invokeMethod('consumePendingBlockedApp');
-
-        // 2. Pedimos el PIN
         final allowed = await _askForPin();
         if (!mounted || !allowed) return;
 
-        // 3. Desbloqueamos temporalmente y abrimos la app
         final unlockUntil = DateTime.now()
             .add(const Duration(minutes: 3))
             .millisecondsSinceEpoch;
@@ -832,40 +819,15 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
 
         await androidChannel.invokeMethod('openAppById', {'appId': appId});
       } else {
-        // 🔥 App normal bloqueada: mostramos el reto matemático
-        // No consumimos aquí; lo hará _checkPendingBlockedAppAndOpenGate()
-        // De hecho, podemos invocar directamente el método que ya existe.
-        // Como alternativa, copiamos y adaptamos la lógica para evitar
-        // interferencias con el flag _openingPendingBlockedApp.
-
-        // Aseguramos que no se esté abriendo otro gate al mismo tiempo
         if (_openingPendingBlockedApp) return;
-
         _openingPendingBlockedApp = true;
 
-        // Consumimos la app pendiente
-        final pendingApp = await androidChannel.invokeMethod<String>(
-          'consumePendingBlockedApp',
-        );
-
-        if (!mounted || pendingApp == null || pendingApp.isEmpty) {
-          _openingPendingBlockedApp = false;
-          return;
-        }
-
-        // Verificamos que esté en la lista de bloqueadas
-        if (!blockedApps.contains(pendingApp)) {
-          _openingPendingBlockedApp = false;
-          return;
-        }
-
-        // Mostramos el reto matemático
         final granted = await Navigator.push<bool>(
           context,
           MaterialPageRoute(
             builder: (_) => ProtectedAppGateScreen(
               profile: activeChild,
-              appName: pendingApp,
+              appName: appId,
               config: androidConfig,
               language: widget.language,
               onLanguageChanged: widget.onLanguageChanged,
@@ -880,15 +842,14 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
           );
 
           await androidChannel.invokeMethod('setTemporaryUnlock', {
-            'appId': pendingApp,
+            'appId': appId,
             'unlockUntil': expiresAt.millisecondsSinceEpoch,
           });
 
-          unlockSessions.removeWhere((e) => e.appName == pendingApp);
+          unlockSessions.removeWhere((e) => e.appName == appId);
           unlockSessions.add(
-            UnlockSession(appName: pendingApp, expiresAt: expiresAt),
+            UnlockSession(appName: appId, expiresAt: expiresAt),
           );
-
           await LocalStorageService.saveUnlockSessions(
             activeChild.id,
             unlockSessions,
@@ -896,7 +857,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
 
           await Future.delayed(const Duration(milliseconds: 300));
           await androidChannel.invokeMethod<bool>('openAppById', {
-            'appId': pendingApp,
+            'appId': appId,
           });
         }
 
@@ -997,6 +958,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
         builder: (_) => BlockedAppsScreen(
           selectedApps: blockedApps,
           language: widget.language,
+          childId: activeChild.id, // NUEVO
+          currentUnlockMinutes: androidConfig.unlockMinutes, // NUEVO
         ),
       ),
     );
@@ -1008,6 +971,16 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
       await LocalStorageService.saveBlockedApps(activeChild.id, blockedApps);
       await _syncBlockedAppsWithAndroid();
       await _evaluateDashboardAchievements();
+
+      // Recargar configuración Android por si cambió el tiempo de desbloqueo
+      final updatedConfig = await LocalStorageService.loadAndroidConfig(
+        activeChild.id,
+      );
+      if (updatedConfig != null && mounted) {
+        setState(() {
+          androidConfig = updatedConfig;
+        });
+      }
     }
   }
 
@@ -1497,6 +1470,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
+            // Tarjeta superior del perfil activo
             PrettyCard(
               color: const Color(0xFFEAEFFF),
               child: Column(
@@ -1603,7 +1577,55 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
                 ],
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 20),
+
+            // Botones principales
+            ElevatedButton.icon(
+              onPressed: _openMathChallenge,
+              icon: const Icon(Icons.play_arrow),
+              label: Text(tr(widget.language, 'testMathChallenge')),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _openBlockedApps,
+              icon: const Icon(Icons.apps),
+              label: Text(tr(widget.language, 'blockedApps')),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _openAndroidSetup,
+              icon: const Icon(Icons.android),
+              label: Text(tr(widget.language, 'configureAndroid')),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _openChangePinScreen,
+              icon: const Icon(Icons.password),
+              label: Text(
+                widget.language == AppLanguage.spanish
+                    ? 'Cambiar PIN parental'
+                    : 'Change parent PIN',
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _openParentAccountScreen,
+              icon: const Icon(Icons.manage_accounts_outlined),
+              label: Text(
+                widget.language == AppLanguage.spanish
+                    ? 'Cuenta parental'
+                    : 'Parent account',
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _openProtectedAppsTester,
+              icon: const Icon(Icons.lock_open),
+              label: Text(tr(widget.language, 'testProtectedApps')),
+            ),
+            const SizedBox(height: 24),
+
+            // --- SECCIÓN DE RESUMEN (AHORA ABAJO) ---
             Text(
               tr(widget.language, 'summary'),
               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
@@ -1622,6 +1644,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
               itemBuilder: (_, index) => cards[index],
             ),
             const SizedBox(height: 18),
+
+            // --- SECCIÓN DE RECOMPENSAS (AHORA ABAJO) ---
             PrettyCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1674,15 +1698,13 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    tr(widget.language, 'achievements'),
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 10),
-                  if (stats.achievements.isEmpty)
-                    Text(tr(widget.language, 'none'))
-                  else
+                  if (stats.achievements.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      tr(widget.language, 'achievements'),
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 10),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -1698,52 +1720,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
                         );
                       }).toList(),
                     ),
+                  ],
                 ],
               ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: _openMathChallenge,
-              icon: const Icon(Icons.play_arrow),
-              label: Text(tr(widget.language, 'testMathChallenge')),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: _openBlockedApps,
-              icon: const Icon(Icons.apps),
-              label: Text(tr(widget.language, 'blockedApps')),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: _openAndroidSetup,
-              icon: const Icon(Icons.android),
-              label: Text(tr(widget.language, 'configureAndroid')),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: _openChangePinScreen,
-              icon: const Icon(Icons.password),
-              label: Text(
-                widget.language == AppLanguage.spanish
-                    ? 'Cambiar PIN parental'
-                    : 'Change parent PIN',
-              ),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: _openParentAccountScreen,
-              icon: const Icon(Icons.manage_accounts_outlined),
-              label: Text(
-                widget.language == AppLanguage.spanish
-                    ? 'Cuenta parental'
-                    : 'Parent account',
-              ),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: _openProtectedAppsTester,
-              icon: const Icon(Icons.lock_open),
-              label: Text(tr(widget.language, 'testProtectedApps')),
             ),
             const SizedBox(height: 12),
             Text(
@@ -2561,6 +2540,7 @@ class ProtectedAppGateScreen extends StatefulWidget {
 class _ProtectedAppGateScreenState extends State<ProtectedAppGateScreen> {
   final TextEditingController _controller = TextEditingController();
   final Random _random = Random();
+  late ConfettiController _confettiController;
 
   int a = 0;
   int b = 0;
@@ -2573,7 +2553,17 @@ class _ProtectedAppGateScreenState extends State<ProtectedAppGateScreen> {
   @override
   void initState() {
     super.initState();
+    _confettiController = ConfettiController(
+      duration: const Duration(seconds: 2),
+    );
     _generateQuestion();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _confettiController.dispose();
+    super.dispose();
   }
 
   void _generateQuestion() {
@@ -2685,7 +2675,11 @@ class _ProtectedAppGateScreenState extends State<ProtectedAppGateScreen> {
         message = tr(widget.language, 'veryGood');
       });
 
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Lanzar confeti
+      _confettiController.play();
+
+      // Esperar a que termine la animación y cerrar
+      await Future.delayed(const Duration(seconds: 2));
       if (!mounted) return;
       Navigator.pop(context, true);
     } else {
@@ -2710,163 +2704,222 @@ class _ProtectedAppGateScreenState extends State<ProtectedAppGateScreen> {
         centerTitle: true,
       ),
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 430),
-              child: Column(
-                children: [
-                  PrettyCard(
-                    color: const Color(0xFFEAEFFF),
-                    child: Column(
-                      children: [
-                        Container(
-                          width: 92,
-                          height: 92,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.06),
-                                blurRadius: 16,
-                                offset: const Offset(0, 6),
+        child: Stack(
+          children: [
+            Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 430),
+                  child: Column(
+                    children: [
+                      PrettyCard(
+                        color: const Color(0xFFEAEFFF),
+                        child: Column(
+                          children: [
+                            Container(
+                              width: 92,
+                              height: 92,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.06),
+                                    blurRadius: 16,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                          child: Icon(appIcon(widget.appName), size: 42),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          appNameLabel,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          tr(widget.language, 'requireMathBeforeOpen'),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  PrettyCard(
-                    child: Column(
-                      children: [
-                        Text(
-                          tr(widget.language, 'solveToUnlock'),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 18),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 24,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.indigo.withOpacity(0.06),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            '$a $operatorSymbol $b = ?',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 46,
-                              fontWeight: FontWeight.w900,
+                              child: Icon(appIcon(widget.appName), size: 42),
                             ),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        TextField(
-                          controller: _controller,
-                          keyboardType: TextInputType.number,
-                          textInputAction: TextInputAction.done,
-                          autofocus: true,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 30,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: tr(widget.language, 'answer'),
-                          ),
-                          onChanged: (_) => setState(() {}),
-                          onSubmitted: (_) => answered ? null : _checkAnswer(),
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed:
-                                answered || _controller.text.trim().isEmpty
-                                ? null
-                                : _checkAnswer,
-                            child: Text(
-                              tr(widget.language, 'check'),
-                              style: const TextStyle(fontSize: 18),
-                            ),
-                          ),
-                        ),
-                        if (message.isNotEmpty) ...[
-                          const SizedBox(height: 14),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 12,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isCorrect
-                                  ? Colors.green.withOpacity(0.10)
-                                  : Colors.red.withOpacity(0.10),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Text(
-                              message,
+                            const SizedBox(height: 16),
+                            Text(
+                              appNameLabel,
                               textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: isCorrect ? Colors.green : Colors.red,
-                                fontSize: 18,
+                              style: const TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              tr(widget.language, 'requireMathBeforeOpen'),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      PrettyCard(
+                        child: Column(
+                          children: [
+                            Text(
+                              tr(widget.language, 'solveToUnlock'),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 24,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.indigo.withOpacity(0.06),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                '$a $operatorSymbol $b = ?',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 46,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            TextField(
+                              controller: _controller,
+                              keyboardType: TextInputType.number,
+                              textInputAction: TextInputAction.done,
+                              autofocus: true,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 30,
                                 fontWeight: FontWeight.w700,
                               ),
+                              decoration: InputDecoration(
+                                hintText: tr(widget.language, 'answer'),
+                              ),
+                              onChanged: (_) => setState(() {}),
+                              onSubmitted: (_) =>
+                                  answered ? null : _checkAnswer(),
                             ),
-                          ),
-                        ],
-                        if (!isCorrect) ...[
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton.icon(
-                              onPressed: _generateQuestion,
-                              icon: const Icon(Icons.refresh),
-                              label: Text(tr(widget.language, 'nextOperation')),
+                            const SizedBox(height: 16),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed:
+                                    answered || _controller.text.trim().isEmpty
+                                    ? null
+                                    : _checkAnswer,
+                                child: Text(
+                                  tr(widget.language, 'check'),
+                                  style: const TextStyle(fontSize: 18),
+                                ),
+                              ),
                             ),
-                          ),
-                        ],
-                      ],
-                    ),
+                            if (message.isNotEmpty) ...[
+                              const SizedBox(height: 14),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isCorrect
+                                      ? Colors.green.withOpacity(0.10)
+                                      : Colors.red.withOpacity(0.10),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Text(
+                                  message,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: isCorrect
+                                        ? Colors.green
+                                        : Colors.red,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                            if (!isCorrect) ...[
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  onPressed: _generateQuestion,
+                                  icon: const Icon(Icons.refresh),
+                                  label: Text(
+                                    tr(widget.language, 'nextOperation'),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
-          ),
+            // Widget del confeti
+            Align(
+              alignment: Alignment.topCenter,
+              child: ConfettiWidget(
+                confettiController: _confettiController,
+                blastDirectionality: BlastDirectionality.explosive,
+                shouldLoop: false,
+                colors: const [
+                  Colors.indigo,
+                  Colors.amber,
+                  Colors.pink,
+                  Colors.lightGreenAccent,
+                  Colors.blue,
+                  Colors.orange,
+                ],
+                createParticlePath: drawStar,
+                numberOfParticles: 40,
+                maxBlastForce: 15,
+                minBlastForce: 5,
+                gravity: 0.2,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
+/// Dibuja una pequeña estrella para el confeti
+Path drawStar(Size size) {
+  final Path path = Path();
+  final double halfW = size.width / 2;
+  final double radius = halfW;
+  final double innerRadius = radius * 0.4;
+
+  for (int i = 0; i < 5; i++) {
+    double angle = -pi / 2 + (i * 2 * pi / 5);
+    double x1 = halfW + radius * cos(angle);
+    double y1 = halfW + radius * sin(angle);
+
+    angle += pi / 5;
+    double x2 = halfW + innerRadius * cos(angle);
+    double y2 = halfW + innerRadius * sin(angle);
+
+    if (i == 0) {
+      path.moveTo(x1, y1);
+    } else {
+      path.lineTo(x1, y1);
+    }
+    path.lineTo(x2, y2);
+  }
+  path.close();
+  return path;
+}
+
+// ✅ Clase añadida al final
 class InterceptedAppGateScreen extends StatefulWidget {
   final String childId;
   final String appName;
@@ -2906,9 +2959,6 @@ class _InterceptedAppGateScreenState extends State<InterceptedAppGateScreen> {
       final config = await LocalStorageService.loadAndroidConfig(
         widget.childId,
       );
-
-      // Consumir la app pendiente para que no se vuelva a interceptar
-      await androidChannel.invokeMethod('consumePendingBlockedApp');
 
       if (!mounted) return;
       setState(() {
