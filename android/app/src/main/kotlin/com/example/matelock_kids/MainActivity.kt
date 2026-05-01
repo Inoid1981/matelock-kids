@@ -180,6 +180,20 @@ class MainActivity : FlutterActivity() {
                         }
                         result.success(true)
                     }
+                    "openBatteryOptimizationSettings" -> {
+    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+    intent.data = Uri.parse("package:$packageName")
+    startActivity(intent)
+    result.success(true)
+}
+
+"openAppSettings" -> {
+    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+    intent.data = Uri.parse("package:$packageName")
+    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    startActivity(intent)
+    result.success(true)
+}
 
                     "stopMonitorService" -> {
                         val intent = Intent(this, AppMonitorService::class.java)

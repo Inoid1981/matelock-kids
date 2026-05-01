@@ -108,7 +108,7 @@ class _BlockedAppsScreenState extends State<BlockedAppsScreen> {
               (entry) => PrettyCard(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 child: SwitchListTile(
-                  secondary: Icon(appIcon(entry.key)),
+                  secondary: appIconWidget(entry.key, size: 32),
                   value: entry.value,
                   title: Text(appLabel(widget.language, entry.key)),
                   onChanged: (value) {

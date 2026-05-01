@@ -52,6 +52,29 @@ IconData appIcon(String appId) {
       return Icons.apps_outlined;
   }
 }
+
+// ✅ NUEVA FUNCIÓN QUE USA LOS ICONOS REALES
+Widget appIconWidget(String appId, {double size = 42}) {
+  const iconPaths = <String, String>{
+    'calculator': 'assets/app_icons/calculator.png',
+    'youtube': 'assets/app_icons/youtube.png',
+    'tiktok': 'assets/app_icons/tiktok.png',
+    'roblox': 'assets/app_icons/roblox.png',
+    'whatsapp': 'assets/app_icons/whatsapp.png',
+    'chrome': 'assets/app_icons/chrome.png',
+    'games': 'assets/app_icons/games.png',
+    'settings': 'assets/app_icons/settings.png',
+    'play_store': 'assets/app_icons/play_store.png',
+  };
+
+  final path = iconPaths[appId];
+  if (path != null) {
+    return Image.asset(path, width: size, height: size);
+  }
+  // Si no hay imagen, usamos el icono de Material por defecto
+  return Icon(appIcon(appId), size: size);
+}
+
 String avatarEmoji(String avatarId) {
   switch (avatarId) {
     case 'robot':

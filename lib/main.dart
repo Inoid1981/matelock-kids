@@ -2495,6 +2495,47 @@ class _AndroidSetupScreenState extends State<AndroidSetupScreen>
                           .toList(),
                     ),
             ),
+            const SizedBox(height: 18),
+            Text(
+              'Ajustes recomendados para que la app nunca falle',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 12),
+            PrettyCard(
+              child: Column(
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      await androidChannel.invokeMethod(
+                        'openBatteryOptimizationSettings',
+                      );
+                    },
+                    icon: const Icon(Icons.battery_saver),
+                    label: const Text('Permitir batería sin restricciones'),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Evita que el sistema cierre la app en segundo plano.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      await androidChannel.invokeMethod('openAppSettings');
+                    },
+                    icon: const Icon(Icons.settings),
+                    label: const Text('Abrir Ajustes de la App'),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Busca "Inicio automático" , "Autostart" o "Inicio en segndo plano" y actívalo.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
