@@ -31,6 +31,10 @@ class AppMonitorService : Service() {
     private var lastOpenedApp: String? = null
     private var lastLaunchTime: Long = 0
 
+    // Variables para evitar notificaciones repetidas en bucle
+    private var lastNotifiedAppId: String? = null
+    private var lastNotifiedTime: Long = 0
+
     private val checkRunnable = object : Runnable {
         override fun run() {
             try {
@@ -166,18 +170,18 @@ class AppMonitorService : Service() {
                 "settings" -> {
                     result["com.android.settings"] = id
                 }
-"package_installer" -> {
-    result["com.google.android.packageinstaller"] = id
-    result["com.android.packageinstaller"] = id
-    result["com.google.android.permissioncontroller"] = id
-    result["com.android.permissioncontroller"] = id
-    result["com.miui.packageinstaller"] = id
-    result["com.samsung.android.packageinstaller"] = id
-}
+                "package_installer" -> {
+                    result["com.google.android.packageinstaller"] = id
+                    result["com.android.packageinstaller"] = id
+                    result["com.google.android.permissioncontroller"] = id
+                    result["com.android.permissioncontroller"] = id
+                    result["com.miui.packageinstaller"] = id
+                    result["com.samsung.android.packageinstaller"] = id
+                }
 
-"play_store" -> {
-    result["com.android.vending"] = id
-}
+                "play_store" -> {
+                    result["com.android.vending"] = id
+                }
 
                 "calculator" -> {
                     result["com.google.android.calculator"] = id
@@ -220,15 +224,26 @@ class AppMonitorService : Service() {
         }
 
         if (currentPackageName != lastOpenedApp || now - lastLaunchTime > 3000) {
+            // Evitar notificar la misma app repetidamente en menos de 5 segundos
+            if (appId == lastNotifiedAppId && (now - lastNotifiedTime) < 5000) {
+                return
+            }
+            lastNotifiedAppId = appId
+            lastNotifiedTime = now
+
             lastOpenedApp = currentPackageName
             lastLaunchTime = now
+
+            // Guardar en SharedPreferences DE FORMA SÍNCRONA
+            val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            prefs.edit().putString("pending_blocked_app", appId).commit()
 
             val intent = Intent(this, MainActivity::class.java)
             intent.putExtra("blocked_app_id", appId)
             intent.addFlags(
                 Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                    Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                    Intent.FLAG_ACTIVITY_REORDER_TO_FRONT  // <-- Flag corregido
             )
             startActivity(intent)
         }

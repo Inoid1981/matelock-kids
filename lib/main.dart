@@ -1,29 +1,53 @@
 ﻿import 'dart:math';
+
 import 'package:flutter/foundation.dart';
+
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
+
 import 'package:confetti/confetti.dart';
 
 import 'models/android_config.dart';
+
 import 'models/app_stats.dart';
+
 import 'models/child_profile.dart';
+
 import 'models/unlock_session.dart';
+
 import 'screens/avatar_selector_screen.dart';
+
 import 'screens/blocked_apps_screen.dart';
+
 import 'screens/change_parent_pin_screen.dart';
+
 import 'screens/create_parent_pin_screen.dart';
+
 import 'screens/child_manager_screen.dart';
+
 import 'screens/child_profile_screen.dart';
+
 import 'screens/forgot_password_screen.dart';
+
 import 'screens/internal_pin_check_screen.dart';
+
 import 'screens/parent_account_screen.dart';
+
 import 'screens/parent_login_screen.dart';
+
 import 'screens/parent_pin_gate_screen.dart';
+
 import 'screens/protected_apps_test_screen.dart';
+
 import 'services/local_storage_service.dart';
+
 import 'utils/app_constants.dart';
+
 import 'utils/translations.dart';
+
 import 'widgets/language_switcher.dart';
+
 import 'widgets/pretty_card.dart';
 
 const MethodChannel androidChannel = MethodChannel('matelock_kids/android');
@@ -41,8 +65,10 @@ class MateLockKidsApp extends StatefulWidget {
 }
 
 class _MateLockKidsAppState extends State<MateLockKidsApp> {
+  bool _isGateOpen = false;
+  final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
   AppLanguage language = AppLanguage.spanish;
-  ThemeMode _themeMode = ThemeMode.system;
+
   void changeLanguage(AppLanguage newLanguage) {
     setState(() {
       language = newLanguage;
@@ -50,11 +76,68 @@ class _MateLockKidsAppState extends State<MateLockKidsApp> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _setupBlockedAppListener();
+  }
+
+  void _setupBlockedAppListener() {
+    androidChannel.setMethodCallHandler((call) async {
+      if (call.method == 'onBlockedApp') {
+        // Si ya estamos mostrando el reto, ignoramos cualquier otro aviso
+        if (_isGateOpen) return;
+
+        final args = call.arguments as Map<dynamic, dynamic>?;
+        final appId = args?['appId'] as String?;
+        if (appId == null || appId.isEmpty) return;
+
+        final childId = await LocalStorageService.loadActiveChildId();
+        if (childId == null) return;
+
+        final context = navigatorKey.currentContext;
+        if (context == null) return;
+
+        // 1. Limpiamos el evento pendiente
+        await androidChannel.invokeMethod('consumePendingBlockedApp');
+
+        // 2. Activamos el semáforo y DETENEMOS el servicio de monitoreo
+        _isGateOpen = true;
+        await androidChannel.invokeMethod('stopMonitorService');
+
+        // 3. Navegamos al reto y al volver, reactivamos el monitoreo
+        Navigator.of(context)
+            .push(
+              MaterialPageRoute(
+                builder: (_) => InterceptedAppGateScreen(
+                  childId: childId,
+                  appName: appId,
+                  language: language,
+                  onLanguageChanged: changeLanguage,
+                ),
+              ),
+            )
+            .then((_) async {
+              // Al cerrar el reto (acierte o no), reanudamos el monitoreo
+              await androidChannel.invokeMethod('startMonitorService');
+              _isGateOpen = false;
+            });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    androidChannel.setMethodCallHandler(null);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
+      debugShowMaterialGrid: false,
       debugShowCheckedModeBanner: false,
       title: 'MateLock Kids',
-      themeMode: _themeMode,
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
@@ -99,7 +182,6 @@ class _MateLockKidsAppState extends State<MateLockKidsApp> {
           ),
         ),
       ),
-
       home: StartupScreen(
         language: language,
         onLanguageChanged: changeLanguage,
@@ -186,12 +268,13 @@ class _StartupScreenState extends State<StartupScreen> {
     }
 
     // Detectar si venimos de una intercepción (app bloqueada abierta)
+    // CAMBIO: usar peekPendingBlockedApp para NO consumir el evento todavía
     if (selectedChild != null &&
         !kIsWeb &&
         defaultTargetPlatform == TargetPlatform.android) {
       try {
         final pendingApp = await androidChannel.invokeMethod<String>(
-          'consumePendingBlockedApp',
+          'peekPendingBlockedApp',
         );
         if (pendingApp != null && pendingApp.isNotEmpty) {
           _pendingBlockedAppId = pendingApp;
@@ -850,6 +933,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
           unlockSessions.add(
             UnlockSession(appName: appId, expiresAt: expiresAt),
           );
+
           await LocalStorageService.saveUnlockSessions(
             activeChild.id,
             unlockSessions,
@@ -958,8 +1042,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
         builder: (_) => BlockedAppsScreen(
           selectedApps: blockedApps,
           language: widget.language,
-          childId: activeChild.id, // NUEVO
-          currentUnlockMinutes: androidConfig.unlockMinutes, // NUEVO
+          childId: activeChild.id,
+          currentUnlockMinutes: androidConfig.unlockMinutes,
         ),
       ),
     );
@@ -972,7 +1056,6 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
       await _syncBlockedAppsWithAndroid();
       await _evaluateDashboardAchievements();
 
-      // Recargar configuración Android por si cambió el tiempo de desbloqueo
       final updatedConfig = await LocalStorageService.loadAndroidConfig(
         activeChild.id,
       );
@@ -1470,7 +1553,6 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            // Tarjeta superior del perfil activo
             PrettyCard(
               color: const Color(0xFFEAEFFF),
               child: Column(
@@ -1578,8 +1660,6 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
               ),
             ),
             const SizedBox(height: 20),
-
-            // Botones principales
             ElevatedButton.icon(
               onPressed: _openMathChallenge,
               icon: const Icon(Icons.play_arrow),
@@ -1624,8 +1704,6 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
               label: Text(tr(widget.language, 'testProtectedApps')),
             ),
             const SizedBox(height: 24),
-
-            // --- SECCIÓN DE RESUMEN (AHORA ABAJO) ---
             Text(
               tr(widget.language, 'summary'),
               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
@@ -1644,8 +1722,6 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen>
               itemBuilder: (_, index) => cards[index],
             ),
             const SizedBox(height: 18),
-
-            // --- SECCIÓN DE RECOMPENSAS (AHORA ABAJO) ---
             PrettyCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2529,7 +2605,7 @@ class _AndroidSetupScreenState extends State<AndroidSetupScreen>
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Busca "Inicio automático" , "Autostart" o "Inicio en segndo plano" y actívalo.',
+                    'Busca "Inicio automático" , "Autostart" o "Inicio en segundo plano" y actívalo.',
                     style: Theme.of(context).textTheme.bodySmall,
                     textAlign: TextAlign.center,
                   ),
@@ -2702,6 +2778,7 @@ class _ProtectedAppGateScreenState extends State<ProtectedAppGateScreen> {
     setState(() {});
   }
 
+  // CAMBIO CLAVE: abrir la app real ANTES de cerrar el reto
   Future<void> _checkAnswer() async {
     if (answered) return;
 
@@ -2716,12 +2793,25 @@ class _ProtectedAppGateScreenState extends State<ProtectedAppGateScreen> {
         message = tr(widget.language, 'veryGood');
       });
 
-      // Lanzar confeti
       _confettiController.play();
 
-      // Esperar a que termine la animación y cerrar
-      await Future.delayed(const Duration(seconds: 2));
+      // 1. ABRIR LA APP REAL PRIMERO
+      try {
+        await androidChannel.invokeMethod('openAppById', {
+          'appId': widget.appName,
+        });
+      } catch (e) {
+        debugPrint('Error al abrir app: $e');
+      }
+
+      // 2. Esperar un instante para que la app se abra
+      await Future.delayed(const Duration(milliseconds: 500));
       if (!mounted) return;
+
+      // 3. Consumir la app pendiente AHORA (para que no se reprocese al volver)
+      await androidChannel.invokeMethod('consumePendingBlockedApp');
+
+      // 4. Cerrar la pantalla de reto
       Navigator.pop(context, true);
     } else {
       _controller.clear();
@@ -2904,7 +2994,6 @@ class _ProtectedAppGateScreenState extends State<ProtectedAppGateScreen> {
                 ),
               ),
             ),
-            // Widget del confeti
             Align(
               alignment: Alignment.topCenter,
               child: ConfettiWidget(
@@ -2933,7 +3022,6 @@ class _ProtectedAppGateScreenState extends State<ProtectedAppGateScreen> {
   }
 }
 
-/// Dibuja una pequeña estrella para el confeti
 Path drawStar(Size size) {
   final Path path = Path();
   final double halfW = size.width / 2;
@@ -2960,7 +3048,6 @@ Path drawStar(Size size) {
   return path;
 }
 
-// ✅ Clase añadida al final
 class InterceptedAppGateScreen extends StatefulWidget {
   final String childId;
   final String appName;

@@ -29,6 +29,8 @@ class MainActivity : FlutterActivity() {
     private val NOTIFICATION_PERMISSION_REQUEST_CODE = 2001
     private val DEVICE_ADMIN_REQUEST_CODE = 3001
 
+    private var channel: MethodChannel? = null   // <-- AÑADIDO
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         savePendingBlockedAppFromIntent(intent)
@@ -44,166 +46,179 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
-            .setMethodCallHandler { call, result ->
-                when (call.method) {
-                    "canDrawOverlays" -> {
-                        result.success(Settings.canDrawOverlays(this))
-                    }
+        // 1. Guardamos el canal en la variable
+        channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
 
-                    "hasUsageAccess" -> {
-                        result.success(hasUsageStatsPermission())
-                    }
+        // 2. Handler vacío para habilitar comunicación nativo -> Flutter
+        channel?.setMethodCallHandler { _, _ -> }
 
-                    "hasNotificationPermission" -> {
-                        result.success(hasNotificationPermission())
-                    }
+        // 3. Handler real con todos los métodos existentes
+        channel?.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "canDrawOverlays" -> {
+                    result.success(Settings.canDrawOverlays(this))
+                }
 
-                    "requestNotificationPermission" -> {
-                        requestNotificationPermissionIfNeeded()
-                        result.success(true)
-                    }
+                "hasUsageAccess" -> {
+                    result.success(hasUsageStatsPermission())
+                }
 
-                    "isDeviceAdminActive" -> {
-                        result.success(isDeviceAdminActive())
-                    }
+                "hasNotificationPermission" -> {
+                    result.success(hasNotificationPermission())
+                }
 
-                    "requestDeviceAdmin" -> {
-                        requestDeviceAdmin()
-                        result.success(true)
-                    }
+                "requestNotificationPermission" -> {
+                    requestNotificationPermissionIfNeeded()
+                    result.success(true)
+                }
 
-                    "openOverlaySettings" -> {
-                        val intent = Intent(
-                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                            Uri.parse("package:$packageName")
+                "isDeviceAdminActive" -> {
+                    result.success(isDeviceAdminActive())
+                }
+
+                "requestDeviceAdmin" -> {
+                    requestDeviceAdmin()
+                    result.success(true)
+                }
+
+                "openOverlaySettings" -> {
+                    val intent = Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:$packageName")
+                    )
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    startActivity(intent)
+                    result.success(true)
+                }
+
+                "openUsageAccessSettings" -> {
+                    val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    startActivity(intent)
+                    result.success(true)
+                }
+
+                "openBatteryOptimizationSettings" -> {
+                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                    intent.data = Uri.parse("package:$packageName")
+                    startActivity(intent)
+                    result.success(true)
+                }
+
+                "openAppSettings" -> {
+                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                    intent.data = Uri.parse("package:$packageName")
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    startActivity(intent)
+                    result.success(true)
+                }
+
+                "setBlockedApps" -> {
+                    val appIds = call.argument<List<String>>("appIds") ?: emptyList()
+                    val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    prefs.edit().putStringSet(BLOCKED_APPS_KEY, appIds.toSet()).apply()
+                    result.success(true)
+                }
+
+                "setTemporaryUnlock" -> {
+                    val appId = call.argument<String>("appId")
+                    val unlockUntil = call.argument<Long>("unlockUntil") ?: 0L
+
+                    if (appId.isNullOrBlank()) {
+                        result.success(false)
+                    } else {
+                        val packages = resolvePackagesForAppId(appId)
+                        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                        val editor = prefs.edit()
+
+                        for (pkg in packages) {
+                            editor.putLong("$UNLOCK_UNTIL_PACKAGE_PREFIX$pkg", unlockUntil)
+                        }
+
+                        result.success(editor.commit())
+                    }
+                }
+
+                "getTemporaryUnlockForPackage" -> {
+                    val packageName = call.argument<String>("packageName")
+
+                    if (packageName.isNullOrBlank()) {
+                        result.success(0L)
+                    } else {
+                        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                        val value = prefs.getLong(
+                            "$UNLOCK_UNTIL_PACKAGE_PREFIX$packageName",
+                            0L
                         )
-                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        startActivity(intent)
-                        result.success(true)
-                    }
-
-                    "openUsageAccessSettings" -> {
-                        val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
-                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        startActivity(intent)
-                        result.success(true)
-                    }
-
-                    "setBlockedApps" -> {
-                        val appIds = call.argument<List<String>>("appIds") ?: emptyList()
-                        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                        prefs.edit().putStringSet(BLOCKED_APPS_KEY, appIds.toSet()).apply()
-                        result.success(true)
-                    }
-
-                    "setTemporaryUnlock" -> {
-                        val appId = call.argument<String>("appId")
-                        val unlockUntil = call.argument<Long>("unlockUntil") ?: 0L
-
-                        if (appId.isNullOrBlank()) {
-                            result.success(false)
-                        } else {
-                            val packages = resolvePackagesForAppId(appId)
-                            val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                            val editor = prefs.edit()
-
-                            for (pkg in packages) {
-                                editor.putLong("$UNLOCK_UNTIL_PACKAGE_PREFIX$pkg", unlockUntil)
-                            }
-
-                            result.success(editor.commit())
-                        }
-                    }
-
-                    "getTemporaryUnlockForPackage" -> {
-                        val packageName = call.argument<String>("packageName")
-
-                        if (packageName.isNullOrBlank()) {
-                            result.success(0L)
-                        } else {
-                            val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                            val value = prefs.getLong(
-                                "$UNLOCK_UNTIL_PACKAGE_PREFIX$packageName",
-                                0L
-                            )
-                            result.success(value)
-                        }
-                    }
-
-                    "clearTemporaryUnlock" -> {
-                        val appId = call.argument<String>("appId")
-
-                        if (appId.isNullOrBlank()) {
-                            result.success(false)
-                        } else {
-                            val packages = resolvePackagesForAppId(appId)
-                            val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                            val editor = prefs.edit()
-
-                            for (pkg in packages) {
-                                editor.remove("$UNLOCK_UNTIL_PACKAGE_PREFIX$pkg")
-                            }
-
-                            result.success(editor.commit())
-                        }
-                    }
-
-                    "consumePendingBlockedApp" -> {
-                        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                        val value = prefs.getString(PENDING_BLOCKED_APP_KEY, null)
-                        prefs.edit().remove(PENDING_BLOCKED_APP_KEY).apply()
                         result.success(value)
                     }
-
-                    "clearPendingBlockedApp" -> {
-                        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                        prefs.edit().remove(PENDING_BLOCKED_APP_KEY).apply()
-                        result.success(true)
-                    }
-
-                    "openAppById" -> {
-                        val appId = call.argument<String>("appId")
-                        if (appId.isNullOrBlank()) {
-                            result.success(false)
-                        } else {
-                            result.success(openAppById(appId))
-                        }
-                    }
-
-                    "startMonitorService" -> {
-                        val intent = Intent(this, AppMonitorService::class.java)
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            startForegroundService(intent)
-                        } else {
-                            startService(intent)
-                        }
-                        result.success(true)
-                    }
-                    "openBatteryOptimizationSettings" -> {
-    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
-    intent.data = Uri.parse("package:$packageName")
-    startActivity(intent)
-    result.success(true)
-}
-
-"openAppSettings" -> {
-    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-    intent.data = Uri.parse("package:$packageName")
-    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    startActivity(intent)
-    result.success(true)
-}
-
-                    "stopMonitorService" -> {
-                        val intent = Intent(this, AppMonitorService::class.java)
-                        stopService(intent)
-                        result.success(true)
-                    }
-
-                    else -> result.notImplemented()
                 }
+
+                "clearTemporaryUnlock" -> {
+                    val appId = call.argument<String>("appId")
+
+                    if (appId.isNullOrBlank()) {
+                        result.success(false)
+                    } else {
+                        val packages = resolvePackagesForAppId(appId)
+                        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                        val editor = prefs.edit()
+
+                        for (pkg in packages) {
+                            editor.remove("$UNLOCK_UNTIL_PACKAGE_PREFIX$pkg")
+                        }
+
+                        result.success(editor.commit())
+                    }
+                }
+
+                "consumePendingBlockedApp" -> {
+                    val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    val value = prefs.getString(PENDING_BLOCKED_APP_KEY, null)
+                    prefs.edit().remove(PENDING_BLOCKED_APP_KEY).commit()
+                    result.success(value)
+                }
+
+                "peekPendingBlockedApp" -> {
+                    val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    val value = prefs.getString(PENDING_BLOCKED_APP_KEY, null)
+                    result.success(value)
+                }
+
+                "clearPendingBlockedApp" -> {
+                    val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    prefs.edit().remove(PENDING_BLOCKED_APP_KEY).commit()
+                    result.success(true)
+                }
+
+                "openAppById" -> {
+                    val appId = call.argument<String>("appId")
+                    if (appId.isNullOrBlank()) {
+                        result.success(false)
+                    } else {
+                        result.success(openAppById(appId))
+                    }
+                }
+
+                "startMonitorService" -> {
+                    val intent = Intent(this, AppMonitorService::class.java)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(intent)
+                    } else {
+                        startService(intent)
+                    }
+                    result.success(true)
+                }
+
+                "stopMonitorService" -> {
+                    val intent = Intent(this, AppMonitorService::class.java)
+                    stopService(intent)
+                    result.success(true)
+                }
+
+                else -> result.notImplemented()
             }
+        }
     }
 
     private fun hasNotificationPermission(): Boolean {
@@ -267,7 +282,10 @@ class MainActivity : FlutterActivity() {
         if (blockedAppId.isNullOrBlank()) return
 
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putString(PENDING_BLOCKED_APP_KEY, blockedAppId).apply()
+        prefs.edit().putString(PENDING_BLOCKED_APP_KEY, blockedAppId).commit()
+
+        // Notificar a Flutter inmediatamente
+        //channel?.invokeMethod("onBlockedApp", mapOf("appId" to blockedAppId))
     }
 
     private fun openAppById(appId: String): Boolean {
